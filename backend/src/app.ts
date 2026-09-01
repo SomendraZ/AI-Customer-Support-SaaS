@@ -3,6 +3,9 @@ import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 
+import authRoutes from "./routes/auth.routes.js";
+import organizationRoutes from "./routes/organization.routes.js";
+
 const app = express();
 
 app.use(helmet());
@@ -31,5 +34,8 @@ app.get("/api/health", (_req, res) => {
     message: "AI Customer Support API is running",
   });
 });
+
+app.use("/api/auth", authRoutes);
+app.use("/api/organization", organizationRoutes);
 
 export default app;
