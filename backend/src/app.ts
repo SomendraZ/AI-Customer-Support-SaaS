@@ -5,6 +5,7 @@ import rateLimit from "express-rate-limit";
 
 import authRoutes from "./routes/auth.routes.js";
 import organizationRoutes from "./routes/organization.routes.js";
+import agentRoutes from "./routes/agent.routes.js";
 
 const app = express();
 
@@ -37,5 +38,6 @@ app.get("/api/health", (_req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/organization", organizationRoutes);
+app.use("/api/agents", agentRoutes);
 
 export default app;

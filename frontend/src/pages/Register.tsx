@@ -47,7 +47,7 @@ const Register = () => {
             type="text"
             value={name}
             onChange={(event) => setName(event.target.value)}
-            placeholder="Somendra Swaroop"
+            placeholder="Your Name"
             required
           />
 
@@ -57,7 +57,7 @@ const Register = () => {
             type="text"
             value={organizationName}
             onChange={(event) => setOrganizationName(event.target.value)}
-            placeholder="Acme Inc."
+            placeholder="Company Name"
             required
           />
 
@@ -67,7 +67,7 @@ const Register = () => {
             type="email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            placeholder="you@example.com"
+            placeholder="Email"
             required
           />
 
