@@ -8,22 +8,31 @@ const Dashboard = () => {
 
   const [organization, setOrganization] = useState<Organization | null>(null);
 
+  const [agentCount, setAgentCount] = useState(0);
+
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchOrganization = async () => {
+    const fetchDashboardData = async () => {
       try {
-        const response = await api.get("/organization");
+        setLoading(true);
 
-        setOrganization(response.data.organization);
+        const [organizationResponse, agentsResponse] = await Promise.all([
+          api.get("/organization"),
+          api.get("/agents"),
+        ]);
+
+        setOrganization(organizationResponse.data.organization);
+
+        setAgentCount(agentsResponse.data.count);
       } catch (error) {
-        console.error("Failed to load organization:", error);
+        console.error("Failed to load dashboard:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchOrganization();
+    fetchDashboardData();
   }, []);
 
   return (
@@ -49,7 +58,8 @@ const Dashboard = () => {
 
         <div className="stat-card">
           <span>AI Agents</span>
-          <strong>0</strong>
+
+          <strong>{loading ? "—" : agentCount}</strong>
         </div>
 
         <div className="stat-card">

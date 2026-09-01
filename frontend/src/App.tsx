@@ -7,6 +7,7 @@ import Agents from "./pages/Agents";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 import DashboardLayout from "./layouts/DashboardLayout";
+import AgentForm from "./pages/AgentForm";
 
 const App = () => {
   return (
@@ -22,6 +23,10 @@ const App = () => {
           <Route path="/dashboard" element={<Dashboard />} />
 
           <Route path="/agents" element={<Agents />} />
+
+          <Route path="/agents/new" element={<AgentForm />} />
+
+          <Route path="/agents/:id/edit" element={<AgentForm />} />
         </Route>
       </Route>
     </Routes>

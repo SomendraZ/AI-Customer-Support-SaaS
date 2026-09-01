@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import AgentCard from "../components/AgentCard";
 import { useAuth } from "../context/AuthContext";
@@ -7,6 +8,7 @@ import type { Agent } from "../types/agent";
 
 const Agents = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,10 +72,7 @@ const Agents = () => {
   };
 
   const handleEdit = (agent: Agent) => {
-    console.log("Edit agent:", agent);
-
-    // We'll replace this with the
-    // edit form in the next step.
+    navigate(`/agents/${agent._id}/edit`);
   };
 
   return (
@@ -86,7 +85,12 @@ const Agents = () => {
         </div>
 
         {canManage && (
-          <button className="primary-button">+ Create Agent</button>
+          <button
+            className="primary-button"
+            onClick={() => navigate("/agents/new")}
+          >
+            + Create Agent
+          </button>
         )}
       </div>
 
@@ -103,7 +107,12 @@ const Agents = () => {
           <p>Create your first AI support agent to get started.</p>
 
           {canManage && (
-            <button className="primary-button">Create Your First Agent</button>
+            <button
+              className="primary-button"
+              onClick={() => navigate("/agents/new")}
+            >
+              Create Your First Agent
+            </button>
           )}
         </div>
       ) : (
