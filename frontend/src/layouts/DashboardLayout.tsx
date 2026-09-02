@@ -16,6 +16,8 @@ const DashboardLayout = () => {
 
           <NavLink to="/knowledge">Knowledge Base</NavLink>
 
+          <NavLink to="/support">Support Chat</NavLink>
+
           <NavLink to="/conversations">Conversations</NavLink>
 
           <NavLink to="/analytics">Analytics</NavLink>

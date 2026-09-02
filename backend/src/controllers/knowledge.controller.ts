@@ -14,6 +14,8 @@ import { generateEmbedding } from "../services/embedding.service.js";
 
 import { searchKnowledgeBase } from "../services/search.service.js";
 
+import { generateRagAnswer } from "../services/rag.service.js";
+
 export const uploadDocument = async (
   req: AuthRequest,
   res: Response,
@@ -268,6 +270,41 @@ export const searchDocuments = async (req: AuthRequest, res: Response) => {
     return res.status(500).json({
       success: false,
       message: "Failed to search knowledge base",
+    });
+  }
+};
+
+export const askKnowledgeBase = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Not authenticated",
+      });
+    }
+
+    const { question } = req.body;
+
+    if (!question || typeof question !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "Question is required",
+      });
+    }
+
+    const result = await generateRagAnswer(req.user.organizationId, question);
+
+    return res.status(200).json({
+      success: true,
+      answer: result.answer,
+      sources: result.sources,
+    });
+  } catch (error) {
+    console.error("KNOWLEDGE Q&A ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to generate answer",
     });
   }
 };

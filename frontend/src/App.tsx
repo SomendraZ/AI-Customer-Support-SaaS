@@ -9,6 +9,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import DashboardLayout from "./layouts/DashboardLayout";
 import AgentForm from "./pages/AgentForm";
 import KnowledgeBase from "./pages/KnowledgeBase";
+import SupportChat from "./pages/SupportChat";
 
 const App = () => {
   return (
@@ -30,6 +31,8 @@ const App = () => {
           <Route path="/agents/:id/edit" element={<AgentForm />} />
 
           <Route path="/knowledge" element={<KnowledgeBase />} />
+
+          <Route path="/support" element={<SupportChat />} />
         </Route>
       </Route>
     </Routes>

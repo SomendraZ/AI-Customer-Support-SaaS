@@ -6,6 +6,7 @@ import {
   getDocument,
   deleteDocument,
   searchDocuments,
+  askKnowledgeBase,
 } from "../controllers/knowledge.controller.js";
 
 import { protect } from "../middleware/auth.middleware.js";
@@ -30,5 +31,7 @@ router.get("/:id", getDocument);
 router.delete("/:id", authorize("owner", "admin"), deleteDocument);
 
 router.post("/search", searchDocuments);
+
+router.post("/ask", askKnowledgeBase);
 
 export default router;
