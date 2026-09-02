@@ -9,6 +9,7 @@ const Dashboard = () => {
   const [organization, setOrganization] = useState<Organization | null>(null);
 
   const [agentCount, setAgentCount] = useState(0);
+  const [documentCount, setDocumentCount] = useState(0);
 
   const [loading, setLoading] = useState(true);
 
@@ -17,14 +18,18 @@ const Dashboard = () => {
       try {
         setLoading(true);
 
-        const [organizationResponse, agentsResponse] = await Promise.all([
-          api.get("/organization"),
-          api.get("/agents"),
-        ]);
+        const [organizationResponse, agentsResponse, documentsResponse] =
+          await Promise.all([
+            api.get("/organization"),
+            api.get("/agents"),
+            api.get("/knowledge"),
+          ]);
 
         setOrganization(organizationResponse.data.organization);
 
         setAgentCount(agentsResponse.data.count);
+
+        setDocumentCount(documentsResponse.data.count);
       } catch (error) {
         console.error("Failed to load dashboard:", error);
       } finally {
@@ -64,7 +69,7 @@ const Dashboard = () => {
 
         <div className="stat-card">
           <span>Knowledge Documents</span>
-          <strong>0</strong>
+          <strong>{loading ? "—" : documentCount}</strong>
         </div>
       </section>
 

@@ -163,22 +163,16 @@ export const updateAgent = async (
       {
         $set: {
           ...(name !== undefined && { name }),
-          ...(description !== undefined && {
-            description,
-          }),
-          ...(instructions !== undefined && {
-            instructions,
-          }),
+          ...(description !== undefined && { description }),
+          ...(instructions !== undefined && { instructions }),
           ...(tone !== undefined && { tone }),
           ...(modelName !== undefined && { modelName }),
-          ...(temperature !== undefined && {
-            temperature,
-          }),
+          ...(temperature !== undefined && { temperature }),
           ...(status !== undefined && { status }),
         },
       },
       {
-        new: true,
+        returnDocument: "after",
         runValidators: true,
       },
     );

@@ -8,6 +8,7 @@ import Agents from "./pages/Agents";
 import ProtectedRoute from "./components/ProtectedRoute";
 import DashboardLayout from "./layouts/DashboardLayout";
 import AgentForm from "./pages/AgentForm";
+import KnowledgeBase from "./pages/KnowledgeBase";
 
 const App = () => {
   return (
@@ -27,6 +28,8 @@ const App = () => {
           <Route path="/agents/new" element={<AgentForm />} />
 
           <Route path="/agents/:id/edit" element={<AgentForm />} />
+
+          <Route path="/knowledge" element={<KnowledgeBase />} />
         </Route>
       </Route>
     </Routes>

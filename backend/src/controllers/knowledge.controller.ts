@@ -1,0 +1,198 @@
+import { Response } from "express";
+
+import { KnowledgeDocument } from "../models/KnowledgeDocument.js";
+
+import { extractText } from "../services/document.service.js";
+
+import { AuthRequest } from "../middleware/auth.middleware.js";
+
+export const uploadDocument = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: "Authentication required",
+      });
+      return;
+    }
+
+    if (!req.file) {
+      res.status(400).json({
+        success: false,
+        message: "No document uploaded",
+      });
+      return;
+    }
+
+    const file = req.file;
+    const text = await extractText(file);
+
+    if (!text) {
+      res.status(400).json({
+        success: false,
+        message: "Could not extract text from document",
+      });
+      return;
+    }
+
+    const extension = file.originalname.split(".").pop()?.toLowerCase();
+
+    if (extension !== "pdf" && extension !== "txt" && extension !== "docx") {
+      res.status(400).json({
+        success: false,
+        message: "Unsupported document format",
+      });
+      return;
+    }
+
+    const document = await KnowledgeDocument.create({
+      name: file.originalname,
+      originalName: file.originalname,
+      type: extension,
+      mimeType: file.mimetype,
+      size: file.size,
+      text,
+      status: "ready",
+      organizationId: req.user.organizationId,
+      uploadedBy: req.user.userId,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Document uploaded successfully",
+      document: {
+        _id: document._id,
+        name: document.name,
+        originalName: document.originalName,
+        type: document.type,
+        size: document.size,
+        status: document.status,
+        createdAt: document.createdAt,
+      },
+    });
+  } catch (error) {
+    console.error("DOCUMENT PROCESSING ERROR:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to process document",
+    });
+  }
+};
+
+export const getDocuments = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: "Authentication required",
+      });
+      return;
+    }
+
+    const documents = await KnowledgeDocument.find({
+      organizationId: req.user.organizationId,
+    })
+      .select("-text")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      count: documents.length,
+      documents,
+    });
+  } catch (error) {
+    console.error("Get documents error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+export const getDocument = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: "Authentication required",
+      });
+      return;
+    }
+
+    const document = await KnowledgeDocument.findOne({
+      _id: req.params.id,
+      organizationId: req.user.organizationId,
+    }).select("-text");
+
+    if (!document) {
+      res.status(404).json({
+        success: false,
+        message: "Document not found",
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      document,
+    });
+  } catch (error) {
+    console.error("Get document error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+export const deleteDocument = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: "Authentication required",
+      });
+      return;
+    }
+
+    const document = await KnowledgeDocument.findOneAndDelete({
+      _id: req.params.id,
+      organizationId: req.user.organizationId,
+    });
+
+    if (!document) {
+      res.status(404).json({
+        success: false,
+        message: "Document not found",
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Document deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete document error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
