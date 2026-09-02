@@ -6,6 +6,14 @@ import { extractText } from "../services/document.service.js";
 
 import { AuthRequest } from "../middleware/auth.middleware.js";
 
+import { DocumentChunk } from "../models/DocumentChunk.js";
+
+import { chunkText } from "../services/chunk.service.js";
+
+import { generateEmbedding } from "../services/embedding.service.js";
+
+import { searchKnowledgeBase } from "../services/search.service.js";
+
 export const uploadDocument = async (
   req: AuthRequest,
   res: Response,
@@ -29,6 +37,10 @@ export const uploadDocument = async (
 
     const file = req.file;
     const text = await extractText(file);
+
+    if (!text.trim()) {
+      throw new Error("No text could be extracted from document");
+    }
 
     if (!text) {
       res.status(400).json({
@@ -59,6 +71,26 @@ export const uploadDocument = async (
       organizationId: req.user.organizationId,
       uploadedBy: req.user.userId,
     });
+
+    const chunks = chunkText(text);
+
+    const chunkDocuments = [];
+
+    for (let index = 0; index < chunks.length; index++) {
+      const content = chunks[index];
+
+      const embedding = await generateEmbedding(content);
+
+      chunkDocuments.push({
+        documentId: document._id,
+        organizationId: req.user!.organizationId,
+        content,
+        chunkIndex: index,
+        embedding,
+      });
+    }
+
+    await DocumentChunk.insertMany(chunkDocuments);
 
     res.status(201).json({
       success: true,
@@ -183,6 +215,11 @@ export const deleteDocument = async (
       return;
     }
 
+    await DocumentChunk.deleteMany({
+      documentId: document._id,
+      organizationId: req.user!.organizationId,
+    });
+
     res.status(200).json({
       success: true,
       message: "Document deleted successfully",
@@ -193,6 +230,44 @@ export const deleteDocument = async (
     res.status(500).json({
       success: false,
       message: "Server error",
+    });
+  }
+};
+
+export const searchDocuments = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Not authenticated",
+      });
+    }
+
+    const { query, limit } = req.body;
+
+    if (!query || typeof query !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "Search query is required",
+      });
+    }
+
+    const results = await searchKnowledgeBase(
+      req.user.organizationId,
+      query,
+      limit || 5,
+    );
+
+    return res.status(200).json({
+      success: true,
+      results,
+    });
+  } catch (error) {
+    console.error("KNOWLEDGE SEARCH ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to search knowledge base",
     });
   }
 };

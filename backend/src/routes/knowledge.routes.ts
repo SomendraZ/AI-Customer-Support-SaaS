@@ -5,6 +5,7 @@ import {
   getDocuments,
   getDocument,
   deleteDocument,
+  searchDocuments,
 } from "../controllers/knowledge.controller.js";
 
 import { protect } from "../middleware/auth.middleware.js";
@@ -27,5 +28,7 @@ router.get("/", getDocuments);
 router.get("/:id", getDocument);
 
 router.delete("/:id", authorize("owner", "admin"), deleteDocument);
+
+router.post("/search", searchDocuments);
 
 export default router;
