@@ -1,5 +1,6 @@
-import { type FormEvent, useState } from "react";
+import { type FormEventHandler, useEffect, useState } from "react";
 import api from "../services/api";
+import type { Agent } from "../types/agent";
 
 interface Source {
   chunkId: string;
@@ -14,24 +15,64 @@ interface ChatMessage {
   sources?: Source[];
 }
 
-interface AskResponse {
+interface AskAgentResponse {
   success: boolean;
   answer: string;
+  agent: {
+    id: string;
+    name: string;
+  };
   sources: Source[];
 }
 
 const SupportChat = () => {
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [selectedAgentId, setSelectedAgentId] = useState("");
+
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [question, setQuestion] = useState("");
+
+  const [loadingAgents, setLoadingAgents] = useState(true);
   const [loading, setLoading] = useState(false);
+
   const [error, setError] = useState("");
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  useEffect(() => {
+    const fetchAgents = async () => {
+      try {
+        setLoadingAgents(true);
+        setError("");
+
+        const response = await api.get("/agents");
+
+        const activeAgents = response.data.agents.filter(
+          (agent: Agent) => agent.status === "active",
+        );
+
+        setAgents(activeAgents);
+
+        if (activeAgents.length > 0) {
+          setSelectedAgentId(activeAgents[0]._id);
+        }
+      } catch (error: any) {
+        setError(error.response?.data?.message || "Failed to load AI agents");
+      } finally {
+        setLoadingAgents(false);
+      }
+    };
+
+    fetchAgents();
+  }, []);
+
+  const selectedAgent = agents.find((agent) => agent._id === selectedAgentId);
+  const suggestedQuestions = selectedAgent?.suggestedQuestions ?? [];
+
+  const handleSubmit: FormEventHandler<HTMLFormElement> = async (event) => {
     event.preventDefault();
 
     const trimmedQuestion = question.trim();
 
-    if (!trimmedQuestion || loading) {
+    if (!trimmedQuestion || !selectedAgentId || loading) {
       return;
     }
 
@@ -49,9 +90,12 @@ const SupportChat = () => {
     setLoading(true);
 
     try {
-      const response = await api.post<AskResponse>("/knowledge/ask", {
-        question: trimmedQuestion,
-      });
+      const response = await api.post<AskAgentResponse>(
+        `/agents/${selectedAgentId}/ask`,
+        {
+          question: trimmedQuestion,
+        },
+      );
 
       const assistantMessage: ChatMessage = {
         id: crypto.randomUUID(),
@@ -68,6 +112,14 @@ const SupportChat = () => {
     }
   };
 
+  const handleAgentChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedAgentId(event.target.value);
+
+    // Start a fresh conversation when switching agents.
+    setMessages([]);
+    setError("");
+  };
+
   const clearChat = () => {
     setMessages([]);
     setError("");
@@ -79,7 +131,7 @@ const SupportChat = () => {
         <div>
           <h1>AI Support Chat</h1>
 
-          <p>Ask questions about your organization's knowledge base.</p>
+          <p>Chat with one of your AI support agents.</p>
         </div>
 
         {messages.length > 0 && (
@@ -94,32 +146,54 @@ const SupportChat = () => {
       </header>
 
       <div className="chat-container">
+        <div className="chat-agent-selector">
+          <label htmlFor="agent">AI Agent</label>
+
+          {loadingAgents ? (
+            <span>Loading agents...</span>
+          ) : agents.length === 0 ? (
+            <span>No active agents available.</span>
+          ) : (
+            <select
+              id="agent"
+              value={selectedAgentId}
+              onChange={handleAgentChange}
+            >
+              {agents.map((agent) => (
+                <option key={agent._id} value={agent._id}>
+                  {agent.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+
         <div className="messages">
           {messages.length === 0 ? (
             <div className="chat-empty">
               <div className="chat-empty-icon">🤖</div>
 
-              <h2>How can I help?</h2>
+              <h2>
+                {selectedAgent
+                  ? `Chat with ${selectedAgent.name}`
+                  : "How can I help?"}
+              </h2>
 
               <p>Ask a question about your knowledge base.</p>
 
-              <div className="suggested-questions">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setQuestion("How long do I have to request a refund?")
-                  }
-                >
-                  What is the refund policy?
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setQuestion("How can I reset my password?")}
-                >
-                  How do I reset my password?
-                </button>
-              </div>
+              {suggestedQuestions.length > 0 && (
+                <div className="suggested-questions">
+                  {suggestedQuestions.map((suggestedQuestion) => (
+                    <button
+                      type="button"
+                      key={suggestedQuestion}
+                      onClick={() => setQuestion(suggestedQuestion)}
+                    >
+                      {suggestedQuestion}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           ) : (
             messages.map((message) => (
@@ -130,7 +204,9 @@ const SupportChat = () => {
 
                 <div className="message-content">
                   <div className="message-role">
-                    {message.role === "user" ? "You" : "AI Support"}
+                    {message.role === "user"
+                      ? "You"
+                      : selectedAgent?.name || "AI Support"}
                   </div>
 
                   <p>{message.content}</p>
@@ -156,7 +232,9 @@ const SupportChat = () => {
               <div className="message-avatar">🤖</div>
 
               <div className="message-content">
-                <div className="message-role">AI Support</div>
+                <div className="message-role">
+                  {selectedAgent?.name || "AI Support"}
+                </div>
 
                 <div className="typing-indicator">
                   <span></span>
@@ -175,14 +253,23 @@ const SupportChat = () => {
             type="text"
             value={question}
             onChange={(event) => setQuestion(event.target.value)}
-            placeholder="Ask a question..."
-            disabled={loading}
+            placeholder={
+              selectedAgent
+                ? `Ask ${selectedAgent.name}...`
+                : "Ask a question..."
+            }
+            disabled={loading || loadingAgents || agents.length === 0}
           />
 
           <button
             type="submit"
             className="primary-button"
-            disabled={loading || !question.trim()}
+            disabled={
+              loading ||
+              loadingAgents ||
+              agents.length === 0 ||
+              !question.trim()
+            }
           >
             {loading ? "..." : "Send"}
           </button>

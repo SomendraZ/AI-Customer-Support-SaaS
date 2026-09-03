@@ -2,6 +2,7 @@ import { Response } from "express";
 
 import { Agent } from "../models/Agent.js";
 import { AuthRequest } from "../middleware/auth.middleware.js";
+import { generateAgentAnswer } from "../services/agent-rag.service.js";
 
 export const createAgent = async (
   req: AuthRequest,
@@ -17,8 +18,15 @@ export const createAgent = async (
       return;
     }
 
-    const { name, description, instructions, tone, modelName, temperature } =
-      req.body;
+    const {
+      name,
+      description,
+      instructions,
+      suggestedQuestions,
+      tone,
+      modelName,
+      temperature,
+    } = req.body;
 
     if (!name || !instructions) {
       res.status(400).json({
@@ -33,6 +41,7 @@ export const createAgent = async (
       name,
       description,
       instructions,
+      suggestedQuestions,
       tone,
       modelName: modelName || "default",
       temperature: temperature !== undefined ? temperature : 0.3,
@@ -149,6 +158,7 @@ export const updateAgent = async (
       name,
       description,
       instructions,
+      suggestedQuestions,
       tone,
       modelName,
       temperature,
@@ -165,6 +175,7 @@ export const updateAgent = async (
           ...(name !== undefined && { name }),
           ...(description !== undefined && { description }),
           ...(instructions !== undefined && { instructions }),
+          ...(suggestedQuestions !== undefined && { suggestedQuestions }),
           ...(tone !== undefined && { tone }),
           ...(modelName !== undefined && { modelName }),
           ...(temperature !== undefined && { temperature }),
@@ -239,6 +250,69 @@ export const deleteAgent = async (
     res.status(500).json({
       success: false,
       message: "Server error",
+    });
+  }
+};
+
+export const askAgent = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Not authenticated",
+      });
+    }
+
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const { question } = req.body;
+
+    if (typeof id !== "string" || !question || typeof question !== "string") {
+      return res.status(400).json({
+        success: false,
+        message:
+          typeof id !== "string"
+            ? "Agent ID is required"
+            : "Question is required",
+      });
+    }
+
+    const result = await generateAgentAnswer(
+      req.user.organizationId,
+      id,
+      question,
+    );
+
+    return res.status(200).json({
+      success: true,
+      answer: result.answer,
+      agent: result.agent,
+      sources: result.sources,
+    });
+  } catch (error) {
+    console.error("AGENT RAG ERROR:", error);
+
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Failed to generate agent response";
+
+    if (message === "Agent not found") {
+      return res.status(404).json({
+        success: false,
+        message,
+      });
+    }
+
+    if (message === "Agent is inactive") {
+      return res.status(400).json({
+        success: false,
+        message,
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to generate agent response",
     });
   }
 };

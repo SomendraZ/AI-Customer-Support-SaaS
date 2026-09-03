@@ -8,6 +8,7 @@ export interface IAgent extends Document {
   name: string;
   description?: string;
   instructions: string;
+  suggestedQuestions: string[];
   tone: AgentTone;
   modelName: string;
   temperature: number;
@@ -39,6 +40,15 @@ const agentSchema = new Schema<IAgent>(
       required: true,
       trim: true,
       maxlength: 5000,
+    },
+
+    suggestedQuestions: {
+      type: [String],
+      default: [],
+      validate: {
+        validator: (questions: string[]) => questions.length <= 5,
+        message: "Maximum 5 suggested questions are allowed",
+      },
     },
 
     tone: {

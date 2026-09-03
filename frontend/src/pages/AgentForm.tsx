@@ -15,6 +15,11 @@ const AgentForm = () => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [instructions, setInstructions] = useState("");
+  const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>([
+    "",
+    "",
+    "",
+  ]);
   const [tone, setTone] = useState<AgentTone>("professional");
   const [model, setModel] = useState("default");
   const [temperature, setTemperature] = useState(0.3);
@@ -39,6 +44,11 @@ const AgentForm = () => {
         setName(agent.name);
         setDescription(agent.description || "");
         setInstructions(agent.instructions);
+        setSuggestedQuestions(
+          agent.suggestedQuestions?.length > 0
+            ? agent.suggestedQuestions
+            : ["", "", ""],
+        );
         setTone(agent.tone);
         setModel(agent.model);
         setTemperature(agent.temperature);
@@ -53,6 +63,28 @@ const AgentForm = () => {
     fetchAgent();
   }, [id]);
 
+  const handleSuggestedQuestionChange = (index: number, value: string) => {
+    setSuggestedQuestions((currentQuestions) =>
+      currentQuestions.map((question, questionIndex) =>
+        questionIndex === index ? value : question,
+      ),
+    );
+  };
+
+  const addSuggestedQuestion = () => {
+    if (suggestedQuestions.length >= 5) {
+      return;
+    }
+
+    setSuggestedQuestions((currentQuestions) => [...currentQuestions, ""]);
+  };
+
+  const removeSuggestedQuestion = (index: number) => {
+    setSuggestedQuestions((currentQuestions) =>
+      currentQuestions.filter((_, questionIndex) => questionIndex !== index),
+    );
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -64,6 +96,9 @@ const AgentForm = () => {
         name,
         description,
         instructions,
+        suggestedQuestions: suggestedQuestions
+          .map((question) => question.trim())
+          .filter(Boolean),
         tone,
         model,
         temperature,
@@ -242,6 +277,48 @@ const AgentForm = () => {
             </div>
           </div>
         )}
+
+        <div className="form-section">
+          <h2>Suggested Questions</h2>
+
+          <p className="form-description">
+            Add questions customers commonly ask this AI agent.
+          </p>
+
+          <div className="suggested-question-list">
+            {suggestedQuestions.map((question, index) => (
+              <div className="suggested-question-input" key={index}>
+                <input
+                  type="text"
+                  value={question}
+                  onChange={(event) =>
+                    handleSuggestedQuestionChange(index, event.target.value)
+                  }
+                  placeholder={`Suggested question ${index + 1}`}
+                  maxLength={200}
+                />
+
+                <button
+                  type="button"
+                  className="remove-question-button"
+                  onClick={() => removeSuggestedQuestion(index)}
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {suggestedQuestions.length < 5 && (
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={addSuggestedQuestion}
+            >
+              + Add Question
+            </button>
+          )}
+        </div>
 
         <div className="form-actions">
           <button

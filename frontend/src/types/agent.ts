@@ -7,6 +7,7 @@ export interface Agent {
   name: string;
   description?: string;
   instructions: string;
+  suggestedQuestions: string[];
   tone: AgentTone;
   modelName: string;
   temperature: number;
