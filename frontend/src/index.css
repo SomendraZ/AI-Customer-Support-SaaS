@@ -1054,3 +1054,91 @@ input {
 .closed-conversation-message span {
   margin-right: 6px;
 }
+
+.conversation-resolution {
+  font-size: 13px;
+  font-weight: 600;
+  color: #666;
+}
+
+.conversation-resolution {
+  padding: 5px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.conversation-resolution.ai_resolved {
+  background: #e7f6ec;
+  color: #217a3c;
+}
+
+.conversation-resolution.human_resolved {
+  background: #eef2ff;
+  color: #4f46e5;
+}
+
+.conversation-status {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.conversation-status.open {
+  background: #e7f6ec;
+  color: #217a3c;
+}
+
+.conversation-status.closed {
+  background: #eeeeee;
+  color: #666;
+}
+
+.conversation-resolution-badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.conversation-resolution-badge.ai_resolved {
+  background: #e7f6ec;
+  color: #217a3c;
+}
+
+.conversation-resolution-badge.human_resolved {
+  background: #eef2ff;
+  color: #4f46e5;
+}
+
+.conversation-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.conversation-filter {
+  padding: 7px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: white;
+  color: #555;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.conversation-filter:hover {
+  background: #f5f5f5;
+}
+
+.conversation-filter.active {
+  border-color: #333;
+  background: #333;
+  color: white;
+}

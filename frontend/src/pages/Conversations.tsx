@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 
@@ -23,10 +23,17 @@ interface ConversationsResponse {
   conversations: Conversation[];
 }
 
+type ConversationFilter =
+  | "all"
+  | "unresolved"
+  | "ai_resolved"
+  | "human_resolved";
+
 const Conversations = () => {
   const navigate = useNavigate();
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [filter, setFilter] = useState<ConversationFilter>("all");
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -60,28 +67,79 @@ const Conversations = () => {
     return agentId.name;
   };
 
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleString();
-  };
+  const filteredConversations = useMemo(() => {
+    if (filter === "all") {
+      return conversations;
+    }
+
+    return conversations.filter(
+      (conversation) => conversation.resolution === filter,
+    );
+  }, [conversations, filter]);
 
   return (
     <div className="conversations-page">
-      <header className="page-header">
+      <header className="conversations-header">
         <div>
           <h1>Conversations</h1>
+
           <p>View and manage your AI support conversations.</p>
         </div>
-
-        <button
-          type="button"
-          className="primary-button"
-          onClick={() => navigate("/support")}
-        >
-          + New Chat
-        </button>
       </header>
 
       {error && <div className="error-message">{error}</div>}
+
+      {!loading && conversations.length > 0 && (
+        <div className="conversation-filters">
+          <button
+            type="button"
+            className={
+              filter === "all"
+                ? "conversation-filter active"
+                : "conversation-filter"
+            }
+            onClick={() => setFilter("all")}
+          >
+            All
+          </button>
+
+          <button
+            type="button"
+            className={
+              filter === "unresolved"
+                ? "conversation-filter active"
+                : "conversation-filter"
+            }
+            onClick={() => setFilter("unresolved")}
+          >
+            Unresolved
+          </button>
+
+          <button
+            type="button"
+            className={
+              filter === "ai_resolved"
+                ? "conversation-filter active"
+                : "conversation-filter"
+            }
+            onClick={() => setFilter("ai_resolved")}
+          >
+            AI Resolved
+          </button>
+
+          <button
+            type="button"
+            className={
+              filter === "human_resolved"
+                ? "conversation-filter active"
+                : "conversation-filter"
+            }
+            onClick={() => setFilter("human_resolved")}
+          >
+            Human Resolved
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div className="loading">Loading conversations...</div>
@@ -92,18 +150,18 @@ const Conversations = () => {
           <h2>No conversations yet</h2>
 
           <p>Start a new AI support conversation to see it here.</p>
+        </div>
+      ) : filteredConversations.length === 0 ? (
+        <div className="conversation-empty">
+          <div className="conversation-empty-icon">🔎</div>
 
-          <button
-            type="button"
-            className="primary-button"
-            onClick={() => navigate("/support")}
-          >
-            Start New Chat
-          </button>
+          <h2>No matching conversations</h2>
+
+          <p>There are no conversations in this category.</p>
         </div>
       ) : (
         <div className="conversation-list">
-          {conversations.map((conversation) => (
+          {filteredConversations.map((conversation) => (
             <button
               type="button"
               className="conversation-card"
@@ -119,11 +177,17 @@ const Conversations = () => {
               </div>
 
               <div className="conversation-card-meta">
-                <span className={`conversation-status ${conversation.status}`}>
-                  {conversation.status}
-                </span>
+                {conversation.resolution === "ai_resolved" && (
+                  <span className="conversation-resolution-badge ai_resolved">
+                    AI Resolved
+                  </span>
+                )}
 
-                <span>{formatDate(conversation.updatedAt)}</span>
+                {conversation.resolution === "human_resolved" && (
+                  <span className="conversation-resolution-badge human_resolved">
+                    Human Resolved
+                  </span>
+                )}
               </div>
             </button>
           ))}

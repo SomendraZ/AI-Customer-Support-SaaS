@@ -24,10 +24,6 @@ const seedConversations = async () => {
 
       const isRefundAgent = agent.name === "Refund & Billing Assistant";
 
-      /*
-       * Conversation 1
-       * Open / Unresolved
-       */
       const conversation1 = await Conversation.create({
         organizationId,
         agentId: agent._id,
@@ -87,10 +83,6 @@ const seedConversations = async () => {
         ]);
       }
 
-      /*
-       * Conversation 2
-       * Closed / AI Resolved
-       */
       const conversation2 = await Conversation.create({
         organizationId,
         agentId: agent._id,
@@ -161,10 +153,6 @@ const seedConversations = async () => {
         ]);
       }
 
-      /*
-       * Conversation 3
-       * Closed / Human Resolved
-       */
       const conversation3 = await Conversation.create({
         organizationId,
         agentId: agent._id,
@@ -255,10 +243,6 @@ const seedConversations = async () => {
         ]);
       }
 
-      /*
-       * Conversation 4
-       * Closed / AI Resolved
-       */
       const conversation4 = await Conversation.create({
         organizationId,
         agentId: agent._id,

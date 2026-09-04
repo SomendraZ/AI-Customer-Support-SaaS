@@ -1,5 +1,5 @@
 import { Response } from "express";
-import { Types } from "mongoose";
+import mongoose, { Types } from "mongoose";
 import { Conversation } from "../models/Conversation.js";
 import { Message } from "../models/Message.js";
 import { Agent } from "../models/Agent.js";
@@ -201,61 +201,6 @@ export const getConversationMessages = async (
   }
 };
 
-export const closeConversation = async (req: AuthRequest, res: Response) => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        message: "Not authenticated",
-      });
-    }
-
-    const { id } = req.params;
-    const conversationId = Array.isArray(id) ? id[0] : id;
-
-    if (!Types.ObjectId.isValid(conversationId)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid conversation ID",
-      });
-    }
-
-    const conversation = await Conversation.findOneAndUpdate(
-      {
-        _id: conversationId,
-        organizationId: req.user.organizationId,
-        userId: req.user.userId,
-      },
-      {
-        status: "closed",
-        resolution: "human_resolved",
-      },
-      {
-        returnDocument: "after",
-      },
-    );
-
-    if (!conversation) {
-      return res.status(404).json({
-        success: false,
-        message: "Conversation not found",
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      conversation,
-    });
-  } catch (error) {
-    console.error("CLOSE CONVERSATION ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Failed to close conversation",
-    });
-  }
-};
-
 export const sendMessage = async (req: AuthRequest, res: Response) => {
   try {
     if (!req.user) {
@@ -322,6 +267,79 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
     return res.status(500).json({
       success: false,
       message: "Failed to send message",
+    });
+  }
+};
+
+export const resolveConversation = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: "Authentication required",
+      });
+      return;
+    }
+
+    const { organizationId, userId } = req.user;
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const { resolution } = req.body;
+
+    if (resolution !== "ai_resolved" && resolution !== "human_resolved") {
+      res.status(400).json({
+        success: false,
+        message: "Invalid resolution type",
+      });
+      return;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      res.status(400).json({
+        success: false,
+        message: "Invalid conversation ID",
+      });
+      return;
+    }
+
+    const conversation = await Conversation.findOneAndUpdate(
+      {
+        _id: id,
+        organizationId,
+        userId,
+        status: "open",
+      },
+      {
+        status: "closed",
+        resolution,
+      },
+      {
+        new: true,
+        runValidators: true,
+      },
+    );
+
+    if (!conversation) {
+      res.status(404).json({
+        success: false,
+        message: "Open conversation not found",
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Conversation resolved successfully",
+      conversation,
+    });
+  } catch (error) {
+    console.error("RESOLVE CONVERSATION ERROR:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to resolve conversation",
     });
   }
 };

@@ -6,8 +6,8 @@ import {
   getConversations,
   getConversation,
   getConversationMessages,
-  closeConversation,
   sendMessage,
+  resolveConversation,
 } from "../controllers/conversation.controller.js";
 
 const router = Router();
@@ -22,8 +22,8 @@ router.get("/:id", getConversation);
 
 router.get("/:id/messages", getConversationMessages);
 
-router.patch("/:id/close", closeConversation);
-
 router.post("/:id/messages", sendMessage);
+
+router.patch("/:id/resolve", resolveConversation);
 
 export default router;

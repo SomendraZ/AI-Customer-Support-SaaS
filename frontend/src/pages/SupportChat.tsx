@@ -76,12 +76,23 @@ const SupportChat = () => {
     "open" | "closed"
   >("open");
 
+  const [conversationResolution, setConversationResolution] = useState<
+    "unresolved" | "ai_resolved" | "human_resolved"
+  >("unresolved");
+
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+
   const [question, setQuestion] = useState("");
 
   const [loadingAgents, setLoadingAgents] = useState(true);
+
   const [loadingConversation, setLoadingConversation] = useState(false);
+
   const [loading, setLoading] = useState(false);
+
+  const [showResolveOptions, setShowResolveOptions] = useState(false);
+
+  const [resolving, setResolving] = useState(false);
 
   const [error, setError] = useState("");
 
@@ -125,7 +136,7 @@ const SupportChat = () => {
               }
             }
           } catch {
-            // The conversation-loading effect will handle errors.
+            setError("Failed to load conversation");
           }
         }
 
@@ -150,6 +161,7 @@ const SupportChat = () => {
         setMessages([]);
         setConversationId("");
         setConversationStatus("open");
+        setShowResolveOptions(false);
 
         if (requestedConversationId) {
           const conversationResponse = await api.get(
@@ -164,10 +176,9 @@ const SupportChat = () => {
               : conversation.agentId._id;
 
           setSelectedAgentId(agentId);
-
           setConversationId(conversation._id);
-
           setConversationStatus(conversation.status);
+          setConversationResolution(conversation.resolution || "unresolved");
 
           const messagesResponse = await api.get<MessagesResponse>(
             `/conversations/${conversation._id}/messages`,
@@ -304,30 +315,35 @@ const SupportChat = () => {
     setSearchParams({});
   };
 
-  const clearChat = async () => {
-    if (!conversationId || conversationStatus === "closed") {
+  const resolveConversation = async (
+    resolution: "ai_resolved" | "human_resolved",
+  ) => {
+    if (!conversationId || conversationStatus === "closed" || resolving) {
       return;
     }
 
     try {
       setError("");
+      setResolving(true);
 
-      await api.patch(`/conversations/${conversationId}/close`);
-
-      const response = await api.post<CreateConversationResponse>(
-        "/conversations",
+      const response = await api.patch(
+        `/conversations/${conversationId}/resolve`,
         {
-          agentId: selectedAgentId,
+          resolution,
         },
       );
 
-      setConversationId(response.data.conversation._id);
-      setConversationStatus("open");
-      setMessages([]);
-      setQuestion("");
-      setSearchParams({});
+      setConversationStatus(response.data.conversation.status);
+
+      setConversationResolution(response.data.conversation.resolution);
+
+      setShowResolveOptions(false);
     } catch (error: any) {
-      setError(error.response?.data?.message || "Failed to clear chat");
+      setError(
+        error.response?.data?.message || "Failed to resolve conversation",
+      );
+    } finally {
+      setResolving(false);
     }
   };
 
@@ -339,17 +355,42 @@ const SupportChat = () => {
 
           <p>Chat with one of your AI support agents.</p>
         </div>
+
         {conversationStatus === "open" && messages.length > 0 && (
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={clearChat}
-            disabled={loading || loadingConversation}
-          >
-            Clear Chat
-          </button>
+          <div className="chat-header-actions">
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => setShowResolveOptions((current) => !current)}
+              disabled={loading || loadingConversation || resolving}
+            >
+              Resolve
+            </button>
+          </div>
         )}
       </header>
+
+      {showResolveOptions && conversationStatus === "open" && (
+        <div className="resolve-options">
+          <span>Resolve conversation as:</span>
+
+          <button
+            type="button"
+            onClick={() => resolveConversation("ai_resolved")}
+            disabled={resolving}
+          >
+            AI Resolved
+          </button>
+
+          <button
+            type="button"
+            onClick={() => resolveConversation("human_resolved")}
+            disabled={resolving}
+          >
+            Human Resolved
+          </button>
+        </div>
+      )}
 
       <div className="chat-container">
         <div className="chat-agent-selector">
@@ -364,7 +405,12 @@ const SupportChat = () => {
               id="agent"
               value={selectedAgentId}
               onChange={handleAgentChange}
-              disabled={loadingConversation}
+              disabled={
+                conversationStatus === "closed" ||
+                loadingConversation ||
+                loading ||
+                resolving
+              }
             >
               {agents.map((agent) => (
                 <option key={agent._id} value={agent._id}>
@@ -373,7 +419,20 @@ const SupportChat = () => {
               ))}
             </select>
           )}
+
+          {conversationStatus === "closed" && (
+            <strong
+              className={`conversation-resolution ${conversationResolution}`}
+            >
+              {conversationResolution === "ai_resolved"
+                ? "AI Resolved"
+                : conversationResolution === "human_resolved"
+                  ? "Human Resolved"
+                  : "Unresolved"}
+            </strong>
+          )}
         </div>
+
         <div className="messages">
           {loadingConversation ? (
             <div className="chat-empty">
@@ -463,7 +522,9 @@ const SupportChat = () => {
             </div>
           )}
         </div>
+
         {error && <div className="error-message">{error}</div>}
+
         {conversationStatus === "open" ? (
           <form className="chat-input-container" onSubmit={handleSubmit}>
             <input
@@ -479,6 +540,7 @@ const SupportChat = () => {
                 loading ||
                 loadingAgents ||
                 loadingConversation ||
+                resolving ||
                 !conversationId ||
                 agents.length === 0
               }
@@ -491,6 +553,7 @@ const SupportChat = () => {
                 loading ||
                 loadingAgents ||
                 loadingConversation ||
+                resolving ||
                 !conversationId ||
                 agents.length === 0 ||
                 !question.trim()
