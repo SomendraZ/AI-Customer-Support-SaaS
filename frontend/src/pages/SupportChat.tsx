@@ -9,13 +9,48 @@ interface Source {
 }
 
 interface ChatMessage {
-  id: string;
+  _id?: string;
+  id?: string;
   role: "user" | "assistant";
   content: string;
   sources?: Source[];
+  createdAt?: string;
 }
 
-interface AskAgentResponse {
+interface Conversation {
+  _id: string;
+  organizationId: string;
+  agentId:
+    | string
+    | {
+        _id: string;
+        name: string;
+      };
+  userId: string;
+  title?: string;
+  status: "open" | "closed";
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface ConversationsResponse {
+  success: boolean;
+  count: number;
+  conversations: Conversation[];
+}
+
+interface MessagesResponse {
+  success: boolean;
+  count: number;
+  messages: ChatMessage[];
+}
+
+interface CreateConversationResponse {
+  success: boolean;
+  conversation: Conversation;
+}
+
+interface SendMessageResponse {
   success: boolean;
   answer: string;
   agent: {
@@ -29,14 +64,19 @@ const SupportChat = () => {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState("");
 
+  const [conversationId, setConversationId] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [question, setQuestion] = useState("");
 
   const [loadingAgents, setLoadingAgents] = useState(true);
+  const [loadingConversation, setLoadingConversation] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const [error, setError] = useState("");
 
+  /*
+   * Load active agents.
+   */
   useEffect(() => {
     const fetchAgents = async () => {
       try {
@@ -64,34 +104,119 @@ const SupportChat = () => {
     fetchAgents();
   }, []);
 
+  /*
+   * Load or create a conversation whenever
+   * the selected agent changes.
+   */
+  useEffect(() => {
+    if (!selectedAgentId) {
+      return;
+    }
+
+    const loadConversation = async () => {
+      try {
+        setLoadingConversation(true);
+        setError("");
+        setMessages([]);
+        setConversationId("");
+
+        /*
+         * First look for an existing conversation
+         * for this agent.
+         */
+        const response = await api.get<ConversationsResponse>("/conversations");
+
+        const existingConversation = response.data.conversations.find(
+          (conversation) => {
+            const agentId =
+              typeof conversation.agentId === "string"
+                ? conversation.agentId
+                : conversation.agentId._id;
+
+            return (
+              agentId === selectedAgentId && conversation.status === "open"
+            );
+          },
+        );
+
+        let activeConversation: Conversation;
+
+        if (existingConversation) {
+          activeConversation = existingConversation;
+        } else {
+          /*
+           * No open conversation exists,
+           * so create one.
+           */
+          const createResponse = await api.post<CreateConversationResponse>(
+            "/conversations",
+            {
+              agentId: selectedAgentId,
+            },
+          );
+
+          activeConversation = createResponse.data.conversation;
+        }
+
+        setConversationId(activeConversation._id);
+
+        /*
+         * Load messages belonging to the conversation.
+         */
+        const messagesResponse = await api.get<MessagesResponse>(
+          `/conversations/${activeConversation._id}/messages`,
+        );
+
+        setMessages(messagesResponse.data.messages);
+      } catch (error: any) {
+        setError(
+          error.response?.data?.message || "Failed to load conversation",
+        );
+      } finally {
+        setLoadingConversation(false);
+      }
+    };
+
+    loadConversation();
+  }, [selectedAgentId]);
+
   const selectedAgent = agents.find((agent) => agent._id === selectedAgentId);
   const suggestedQuestions = selectedAgent?.suggestedQuestions ?? [];
 
+  /*
+   * Send message.
+   */
   const handleSubmit: FormEventHandler<HTMLFormElement> = async (event) => {
     event.preventDefault();
 
     const trimmedQuestion = question.trim();
 
-    if (!trimmedQuestion || !selectedAgentId || loading) {
+    if (!trimmedQuestion || !conversationId || loading || loadingConversation) {
       return;
     }
 
     setError("");
 
-    const userMessage: ChatMessage = {
+    /*
+     * Show the user message immediately.
+     */
+    const temporaryUserMessage: ChatMessage = {
       id: crypto.randomUUID(),
       role: "user",
       content: trimmedQuestion,
     };
 
-    setMessages((currentMessages) => [...currentMessages, userMessage]);
+    setMessages((currentMessages) => [
+      ...currentMessages,
+      temporaryUserMessage,
+    ]);
 
     setQuestion("");
     setLoading(true);
 
     try {
-      const response = await api.post<AskAgentResponse>(
-        `/agents/${selectedAgentId}/ask`,
+      const response = await api.post<SendMessageResponse>(
+        `/conversations/${conversationId}/messages`,
         {
           question: trimmedQuestion,
         },
@@ -106,6 +231,16 @@ const SupportChat = () => {
 
       setMessages((currentMessages) => [...currentMessages, assistantMessage]);
     } catch (error: any) {
+      /*
+       * Remove the temporary user message if
+       * the request failed.
+       */
+      setMessages((currentMessages) =>
+        currentMessages.filter(
+          (message) => message.id !== temporaryUserMessage.id,
+        ),
+      );
+
       setError(error.response?.data?.message || "Failed to get AI response");
     } finally {
       setLoading(false);
@@ -114,15 +249,35 @@ const SupportChat = () => {
 
   const handleAgentChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedAgentId(event.target.value);
-
-    // Start a fresh conversation when switching agents.
-    setMessages([]);
+    setQuestion("");
     setError("");
   };
 
-  const clearChat = () => {
-    setMessages([]);
-    setError("");
+  const clearChat = async () => {
+    if (!conversationId) {
+      return;
+    }
+
+    try {
+      setError("");
+
+      await api.patch(`/conversations/${conversationId}/close`);
+
+      /*
+       * Create a fresh conversation for the same agent.
+       */
+      const response = await api.post<CreateConversationResponse>(
+        "/conversations",
+        {
+          agentId: selectedAgentId,
+        },
+      );
+
+      setConversationId(response.data.conversation._id);
+      setMessages([]);
+    } catch (error: any) {
+      setError(error.response?.data?.message || "Failed to clear chat");
+    }
   };
 
   return (
@@ -139,6 +294,7 @@ const SupportChat = () => {
             type="button"
             className="secondary-button"
             onClick={clearChat}
+            disabled={loading || loadingConversation}
           >
             Clear Chat
           </button>
@@ -158,6 +314,7 @@ const SupportChat = () => {
               id="agent"
               value={selectedAgentId}
               onChange={handleAgentChange}
+              disabled={loadingConversation}
             >
               {agents.map((agent) => (
                 <option key={agent._id} value={agent._id}>
@@ -169,7 +326,15 @@ const SupportChat = () => {
         </div>
 
         <div className="messages">
-          {messages.length === 0 ? (
+          {loadingConversation ? (
+            <div className="chat-empty">
+              <div className="chat-empty-icon">🤖</div>
+
+              <h2>Loading conversation...</h2>
+
+              <p>Loading your conversation history.</p>
+            </div>
+          ) : messages.length === 0 ? (
             <div className="chat-empty">
               <div className="chat-empty-icon">🤖</div>
 
@@ -181,7 +346,7 @@ const SupportChat = () => {
 
               <p>Ask a question about your knowledge base.</p>
 
-              {suggestedQuestions.length > 0 && (
+              {suggestedQuestions.length > 0 && selectedAgent && (
                 <div className="suggested-questions">
                   {suggestedQuestions.map((suggestedQuestion) => (
                     <button
@@ -197,7 +362,10 @@ const SupportChat = () => {
             </div>
           ) : (
             messages.map((message) => (
-              <div key={message.id} className={`chat-message ${message.role}`}>
+              <div
+                key={message._id || message.id}
+                className={`chat-message ${message.role}`}
+              >
                 <div className="message-avatar">
                   {message.role === "user" ? "👤" : "🤖"}
                 </div>
@@ -258,7 +426,13 @@ const SupportChat = () => {
                 ? `Ask ${selectedAgent.name}...`
                 : "Ask a question..."
             }
-            disabled={loading || loadingAgents || agents.length === 0}
+            disabled={
+              loading ||
+              loadingAgents ||
+              loadingConversation ||
+              !conversationId ||
+              agents.length === 0
+            }
           />
 
           <button
@@ -267,6 +441,8 @@ const SupportChat = () => {
             disabled={
               loading ||
               loadingAgents ||
+              loadingConversation ||
+              !conversationId ||
               agents.length === 0 ||
               !question.trim()
             }

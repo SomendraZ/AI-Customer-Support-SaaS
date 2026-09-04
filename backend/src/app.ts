@@ -7,6 +7,7 @@ import authRoutes from "./routes/auth.routes.js";
 import organizationRoutes from "./routes/organization.routes.js";
 import agentRoutes from "./routes/agent.routes.js";
 import knowledgeRoutes from "./routes/knowledge.routes.js";
+import conversationRoutes from "./routes/conversation.routes.js";
 
 const app = express();
 
@@ -41,5 +42,6 @@ app.use("/api/auth", authRoutes);
 app.use("/api/organization", organizationRoutes);
 app.use("/api/agents", agentRoutes);
 app.use("/api/knowledge", knowledgeRoutes);
+app.use("/api/conversations", conversationRoutes);
 
 export default app;
