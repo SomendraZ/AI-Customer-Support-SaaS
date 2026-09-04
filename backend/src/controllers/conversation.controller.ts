@@ -4,7 +4,10 @@ import { Conversation } from "../models/Conversation.js";
 import { Message } from "../models/Message.js";
 import { Agent } from "../models/Agent.js";
 import { AuthRequest } from "../middleware/auth.middleware.js";
-import { sendConversationMessage } from "../services/conversation.service.js";
+import {
+  retryFailedMessage,
+  sendConversationMessage,
+} from "../services/conversation.service.js";
 
 export const createConversation = async (req: AuthRequest, res: Response) => {
   try {
@@ -340,6 +343,99 @@ export const resolveConversation = async (
     res.status(500).json({
       success: false,
       message: "Failed to resolve conversation",
+    });
+  }
+};
+
+export const retryMessage = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: "Authentication required",
+      });
+      return;
+    }
+
+    const { organizationId } = req.user;
+
+    const conversationId = Array.isArray(req.params.id)
+      ? req.params.id[0]
+      : req.params.id;
+
+    const messageId = Array.isArray(req.params.messageId)
+      ? req.params.messageId[0]
+      : req.params.messageId;
+
+    if (
+      !mongoose.Types.ObjectId.isValid(conversationId) ||
+      !mongoose.Types.ObjectId.isValid(messageId)
+    ) {
+      res.status(400).json({
+        success: false,
+        message: "Invalid conversation or message ID",
+      });
+      return;
+    }
+
+    const result = await retryFailedMessage(
+      organizationId,
+      conversationId,
+      messageId,
+    );
+
+    res.status(200).json({
+      success: true,
+      message: result.message,
+      assistantMessage: result.assistantMessage,
+      answer: result.result.answer,
+      agent: result.result.agent,
+      sources: result.result.sources,
+    });
+  } catch (error: any) {
+    console.error("RETRY MESSAGE ERROR:", error);
+
+    if (error?.status === 429) {
+      res.status(429).json({
+        success: false,
+        message: "AI service quota exceeded. Please try again later.",
+      });
+      return;
+    }
+
+    if (error instanceof Error && error.message === "Conversation not found") {
+      res.status(404).json({
+        success: false,
+        message: error.message,
+      });
+      return;
+    }
+
+    if (error instanceof Error && error.message === "Conversation is closed") {
+      res.status(400).json({
+        success: false,
+        message: error.message,
+      });
+      return;
+    }
+
+    if (
+      error instanceof Error &&
+      error.message === "Failed message not found"
+    ) {
+      res.status(404).json({
+        success: false,
+        message: error.message,
+      });
+      return;
+    }
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to retry message",
     });
   }
 };

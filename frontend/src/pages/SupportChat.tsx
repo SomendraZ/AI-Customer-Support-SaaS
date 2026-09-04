@@ -1,4 +1,4 @@
-import { type FormEventHandler, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import api from "../services/api";
 import type { Agent } from "../types/agent";
@@ -16,6 +16,7 @@ interface ChatMessage {
   content: string;
   sources?: Source[];
   createdAt?: string;
+  status?: "sending" | "completed" | "failed";
 }
 
 interface Conversation {
@@ -60,6 +61,9 @@ interface SendMessageResponse {
     name: string;
   };
   sources: Source[];
+  assistantMessage?: {
+    _id: string;
+  };
 }
 
 const SupportChat = () => {
@@ -248,10 +252,8 @@ const SupportChat = () => {
 
   const suggestedQuestions = selectedAgent?.suggestedQuestions ?? [];
 
-  const handleSubmit: FormEventHandler<HTMLFormElement> = async (event) => {
-    event.preventDefault();
-
-    const trimmedQuestion = question.trim();
+  const sendQuestion = async (messageContent: string, messageId?: string) => {
+    const trimmedQuestion = messageContent.trim();
 
     if (
       conversationStatus === "closed" ||
@@ -265,16 +267,32 @@ const SupportChat = () => {
 
     setError("");
 
-    const temporaryUserMessage: ChatMessage = {
-      id: crypto.randomUUID(),
-      role: "user",
-      content: trimmedQuestion,
-    };
+    const temporaryMessageId = messageId || crypto.randomUUID();
 
-    setMessages((currentMessages) => [
-      ...currentMessages,
-      temporaryUserMessage,
-    ]);
+    if (messageId) {
+      setMessages((currentMessages) =>
+        currentMessages.map((message) =>
+          message.id === messageId
+            ? {
+                ...message,
+                status: "sending" as const,
+              }
+            : message,
+        ),
+      );
+    } else {
+      const temporaryUserMessage: ChatMessage = {
+        id: temporaryMessageId,
+        role: "user",
+        content: trimmedQuestion,
+        status: "sending",
+      };
+
+      setMessages((currentMessages) => [
+        ...currentMessages,
+        temporaryUserMessage,
+      ]);
+    }
 
     setQuestion("");
     setLoading(true);
@@ -287,22 +305,108 @@ const SupportChat = () => {
         },
       );
 
-      const assistantMessage: ChatMessage = {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content: response.data.answer,
-        sources: response.data.sources,
-      };
-
-      setMessages((currentMessages) => [...currentMessages, assistantMessage]);
+      setMessages((currentMessages) => [
+        ...currentMessages.map((message) =>
+          message.id === temporaryMessageId
+            ? {
+                ...message,
+                status: "completed" as const,
+              }
+            : message,
+        ),
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: response.data.answer,
+          sources: response.data.sources,
+          status: "completed",
+        },
+      ]);
     } catch (error: any) {
       setMessages((currentMessages) =>
-        currentMessages.filter(
-          (message) => message.id !== temporaryUserMessage.id,
+        currentMessages.map((message) =>
+          message.id === temporaryMessageId
+            ? {
+                ...message,
+                status: "failed" as const,
+              }
+            : message,
         ),
       );
 
       setError(error.response?.data?.message || "Failed to get AI response");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    await sendQuestion(question);
+  };
+
+  const retryMessage = async (message: ChatMessage) => {
+    if (
+      message.role !== "user" ||
+      message.status !== "failed" ||
+      !message._id ||
+      !conversationId ||
+      loading
+    ) {
+      return;
+    }
+
+    try {
+      setError("");
+      setLoading(true);
+
+      setMessages((currentMessages) =>
+        currentMessages.map((currentMessage) =>
+          currentMessage._id === message._id
+            ? {
+                ...currentMessage,
+                status: "sending",
+              }
+            : currentMessage,
+        ),
+      );
+
+      const response = await api.post<SendMessageResponse>(
+        `/conversations/${conversationId}/messages/${message._id}/retry`,
+      );
+
+      setMessages((currentMessages) => [
+        ...currentMessages.map((currentMessage) =>
+          currentMessage._id === message._id
+            ? {
+                ...currentMessage,
+                status: "completed" as const,
+              }
+            : currentMessage,
+        ),
+        {
+          _id: response.data.assistantMessage?._id,
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: response.data.answer,
+          sources: response.data.sources,
+          status: "completed",
+        },
+      ]);
+    } catch (error: any) {
+      setMessages((currentMessages) =>
+        currentMessages.map((currentMessage) =>
+          currentMessage._id === message._id
+            ? {
+                ...currentMessage,
+                status: "failed",
+              }
+            : currentMessage,
+        ),
+      );
+
+      setError(error.response?.data?.message || "Failed to retry message");
     } finally {
       setLoading(false);
     }
@@ -487,6 +591,24 @@ const SupportChat = () => {
                   </div>
 
                   <p>{message.content}</p>
+
+                  {message.status === "sending" && (
+                    <span className="message-status">Sending...</span>
+                  )}
+
+                  {message.status === "failed" && (
+                    <div className="message-failed">
+                      <span>Failed to send</span>
+
+                      <button
+                        type="button"
+                        onClick={() => retryMessage(message)}
+                        disabled={loading}
+                      >
+                        Retry
+                      </button>
+                    </div>
+                  )}
 
                   {message.sources && message.sources.length > 0 && (
                     <div className="message-sources">

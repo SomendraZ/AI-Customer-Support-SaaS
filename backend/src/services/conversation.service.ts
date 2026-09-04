@@ -38,6 +38,7 @@ export const sendConversationMessage = async (
     organizationId,
     role: "user",
     content: question.trim(),
+    status: "completed",
   });
 
   const recentMessages = await Message.find({
@@ -62,10 +63,8 @@ export const sendConversationMessage = async (
       conversationHistory,
     );
   } catch (error) {
-    await Message.deleteOne({
-      _id: userMessage._id,
-      conversationId: conversation._id,
-      organizationId,
+    await Message.findByIdAndUpdate(userMessage._id, {
+      status: "failed",
     });
 
     throw error;
@@ -93,4 +92,79 @@ export const sendConversationMessage = async (
   );
 
   return result;
+};
+
+export const retryFailedMessage = async (
+  organizationId: string,
+  conversationId: string,
+  messageId: string,
+) => {
+  const conversation = await Conversation.findOne({
+    _id: conversationId,
+    organizationId,
+  });
+
+  if (!conversation) {
+    throw new Error("Conversation not found");
+  }
+
+  if (conversation.status === "closed") {
+    throw new Error("Conversation is closed");
+  }
+
+  const message = await Message.findOne({
+    _id: messageId,
+    conversationId: conversation._id,
+    organizationId,
+    role: "user",
+    status: "failed",
+  });
+
+  if (!message) {
+    throw new Error("Failed message not found");
+  }
+
+  const previousMessages = await Message.find({
+    conversationId: conversation._id,
+    organizationId,
+    _id: { $ne: message._id },
+  })
+    .sort({ createdAt: 1 })
+    .lean();
+
+  const conversationHistory = previousMessages.map((item) => ({
+    role: item.role,
+    content: item.content,
+  }));
+
+  let result: AgentRagResponse;
+
+  try {
+    result = await generateAgentAnswer(
+      organizationId,
+      conversation.agentId.toString(),
+      message.content,
+      conversationHistory,
+    );
+  } catch (error) {
+    throw error;
+  }
+
+  message.status = "completed";
+  await message.save();
+
+  const assistantMessage = await Message.create({
+    conversationId: conversation._id,
+    organizationId,
+    role: "assistant",
+    content: result.answer,
+    status: "completed",
+    sources: result.sources,
+  });
+
+  return {
+    message,
+    assistantMessage,
+    result,
+  };
 };

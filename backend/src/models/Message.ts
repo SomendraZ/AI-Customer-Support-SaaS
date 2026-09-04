@@ -1,11 +1,12 @@
 import mongoose, { Document, Schema, Types } from "mongoose";
 
 export type MessageRole = "user" | "assistant";
-
+export type MessageStatus = "completed" | "failed";
 export interface IMessage extends Document {
   conversationId: Types.ObjectId;
   organizationId: Types.ObjectId;
   role: MessageRole;
+  status: MessageStatus;
   content: string;
   sources?: {
     chunkId: string;
@@ -35,6 +36,13 @@ const messageSchema = new Schema<IMessage>(
     role: {
       type: String,
       enum: ["user", "assistant"],
+      required: true,
+    },
+
+    status: {
+      type: String,
+      enum: ["completed", "failed"],
+      default: "completed",
       required: true,
     },
 

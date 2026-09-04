@@ -8,6 +8,7 @@ import {
   getConversationMessages,
   sendMessage,
   resolveConversation,
+  retryMessage,
 } from "../controllers/conversation.controller.js";
 
 const router = Router();
@@ -25,5 +26,7 @@ router.get("/:id/messages", getConversationMessages);
 router.post("/:id/messages", sendMessage);
 
 router.patch("/:id/resolve", resolveConversation);
+
+router.post("/:id/messages/:messageId/retry", retryMessage);
 
 export default router;

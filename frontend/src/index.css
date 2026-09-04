@@ -1142,3 +1142,39 @@ input {
   background: #333;
   color: white;
 }
+
+.message-status {
+  display: block;
+  margin-top: 6px;
+  color: #888;
+  font-size: 11px;
+}
+
+.message-failed {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  color: #c0392b;
+  font-size: 11px;
+}
+
+.message-failed button {
+  padding: 4px 8px;
+  border: 1px solid #c0392b;
+  border-radius: 5px;
+  background: white;
+  color: #c0392b;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.message-failed button:hover {
+  background: #c0392b;
+  color: white;
+}
+
+.message-failed button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
