@@ -1,4 +1,5 @@
 import { type FormEventHandler, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import api from "../services/api";
 import type { Agent } from "../types/agent";
 
@@ -29,6 +30,7 @@ interface Conversation {
   userId: string;
   title?: string;
   status: "open" | "closed";
+  resolution: "unresolved" | "ai_resolved" | "human_resolved";
   createdAt: string;
   updatedAt: string;
 }
@@ -61,6 +63,9 @@ interface SendMessageResponse {
 }
 
 const SupportChat = () => {
+  const [searchParams] = useSearchParams();
+  const requestedConversationId = searchParams.get("conversation");
+
   const [agents, setAgents] = useState<Agent[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState("");
 
@@ -74,9 +79,6 @@ const SupportChat = () => {
 
   const [error, setError] = useState("");
 
-  /*
-   * Load active agents.
-   */
   useEffect(() => {
     const fetchAgents = async () => {
       try {
@@ -91,6 +93,36 @@ const SupportChat = () => {
 
         setAgents(activeAgents);
 
+        if (requestedConversationId) {
+          try {
+            const conversationsResponse =
+              await api.get<ConversationsResponse>("/conversations");
+
+            const requestedConversation =
+              conversationsResponse.data.conversations.find(
+                (conversation) => conversation._id === requestedConversationId,
+              );
+
+            if (requestedConversation) {
+              const agentId =
+                typeof requestedConversation.agentId === "string"
+                  ? requestedConversation.agentId
+                  : requestedConversation.agentId._id;
+
+              const agentExists = activeAgents.some(
+                (agent: { _id: string }) => agent._id === agentId,
+              );
+
+              if (agentExists) {
+                setSelectedAgentId(agentId);
+                return;
+              }
+            }
+          } catch {
+            // The conversation-loading effect will handle errors.
+          }
+        }
+
         if (activeAgents.length > 0) {
           setSelectedAgentId(activeAgents[0]._id);
         }
@@ -104,15 +136,7 @@ const SupportChat = () => {
     fetchAgents();
   }, []);
 
-  /*
-   * Load or create a conversation whenever
-   * the selected agent changes.
-   */
   useEffect(() => {
-    if (!selectedAgentId) {
-      return;
-    }
-
     const loadConversation = async () => {
       try {
         setLoadingConversation(true);
@@ -120,10 +144,34 @@ const SupportChat = () => {
         setMessages([]);
         setConversationId("");
 
-        /*
-         * First look for an existing conversation
-         * for this agent.
-         */
+        if (requestedConversationId) {
+          const conversationResponse = await api.get(
+            `/conversations/${requestedConversationId}`,
+          );
+
+          const conversation = conversationResponse.data.conversation;
+
+          const agentId =
+            typeof conversation.agentId === "string"
+              ? conversation.agentId
+              : conversation.agentId._id;
+
+          setSelectedAgentId(agentId);
+          setConversationId(conversation._id);
+
+          const messagesResponse = await api.get<MessagesResponse>(
+            `/conversations/${conversation._id}/messages`,
+          );
+
+          setMessages(messagesResponse.data.messages);
+
+          return;
+        }
+
+        if (!selectedAgentId) {
+          return;
+        }
+
         const response = await api.get<ConversationsResponse>("/conversations");
 
         const existingConversation = response.data.conversations.find(
@@ -144,10 +192,6 @@ const SupportChat = () => {
         if (existingConversation) {
           activeConversation = existingConversation;
         } else {
-          /*
-           * No open conversation exists,
-           * so create one.
-           */
           const createResponse = await api.post<CreateConversationResponse>(
             "/conversations",
             {
@@ -160,9 +204,6 @@ const SupportChat = () => {
 
         setConversationId(activeConversation._id);
 
-        /*
-         * Load messages belonging to the conversation.
-         */
         const messagesResponse = await api.get<MessagesResponse>(
           `/conversations/${activeConversation._id}/messages`,
         );
@@ -178,7 +219,7 @@ const SupportChat = () => {
     };
 
     loadConversation();
-  }, [selectedAgentId]);
+  }, [selectedAgentId, requestedConversationId]);
 
   const selectedAgent = agents.find((agent) => agent._id === selectedAgentId);
   const suggestedQuestions = selectedAgent?.suggestedQuestions ?? [];

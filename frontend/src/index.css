@@ -944,3 +944,100 @@ input {
     padding: 10px;
   }
 }
+
+.conversations-page {
+  width: 100%;
+}
+
+.conversation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.conversation-card {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px 20px;
+  border: 1px solid #e2e5ea;
+  border-radius: 10px;
+  background: white;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+.conversation-card:hover {
+  border-color: #b8c0cc;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.conversation-card-main {
+  min-width: 0;
+}
+
+.conversation-card-main h3 {
+  margin: 0 0 6px;
+  font-size: 16px;
+}
+
+.conversation-card-main p {
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.conversation-card-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  color: #777;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.conversation-status {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.conversation-status.open {
+  background: #e7f6ec;
+  color: #217a3c;
+}
+
+.conversation-status.closed {
+  background: #eeeeee;
+  color: #666;
+}
+
+.conversation-empty {
+  padding: 70px 20px;
+  text-align: center;
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+}
+
+.conversation-empty-icon {
+  font-size: 42px;
+  margin-bottom: 12px;
+}
+
+.conversation-empty h2 {
+  margin: 0 0 8px;
+}
+
+.conversation-empty p {
+  margin: 0 0 20px;
+  color: #666;
+}

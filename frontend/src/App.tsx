@@ -10,6 +10,7 @@ import DashboardLayout from "./layouts/DashboardLayout";
 import AgentForm from "./pages/AgentForm";
 import KnowledgeBase from "./pages/KnowledgeBase";
 import SupportChat from "./pages/SupportChat";
+import Conversations from "./pages/Conversations";
 
 const App = () => {
   return (
@@ -33,6 +34,8 @@ const App = () => {
           <Route path="/knowledge" element={<KnowledgeBase />} />
 
           <Route path="/support" element={<SupportChat />} />
+
+          <Route path="/conversations" element={<Conversations />} />
         </Route>
       </Route>
     </Routes>

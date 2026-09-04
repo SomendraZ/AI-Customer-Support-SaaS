@@ -6,6 +6,7 @@ export interface IConversation extends Document {
   userId: Types.ObjectId;
   title?: string;
   status: "open" | "closed";
+  resolution: ConversationResolution;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -44,6 +45,12 @@ const conversationSchema = new Schema<IConversation>(
       enum: ["open", "closed"],
       default: "open",
     },
+
+    resolution: {
+      type: String,
+      enum: ["unresolved", "ai_resolved", "human_resolved"],
+      default: "unresolved",
+    },
   },
   {
     timestamps: true,
@@ -60,3 +67,8 @@ export const Conversation = mongoose.model<IConversation>(
   "Conversation",
   conversationSchema,
 );
+
+export type ConversationResolution =
+  | "unresolved"
+  | "ai_resolved"
+  | "human_resolved";

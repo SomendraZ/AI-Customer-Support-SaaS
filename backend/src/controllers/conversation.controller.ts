@@ -52,6 +52,7 @@ export const createConversation = async (req: AuthRequest, res: Response) => {
       userId,
       title: title?.trim() || `${agent.name} Conversation`,
       status: "open",
+      resolution: "unresolved",
     });
 
     return res.status(201).json({
@@ -227,6 +228,7 @@ export const closeConversation = async (req: AuthRequest, res: Response) => {
       },
       {
         status: "closed",
+        resolution: "human_resolved",
       },
       {
         returnDocument: "after",
