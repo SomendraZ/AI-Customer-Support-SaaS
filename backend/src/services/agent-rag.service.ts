@@ -18,10 +18,16 @@ export interface AgentRagResponse {
   }[];
 }
 
+export interface ConversationHistoryMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
 export const generateAgentAnswer = async (
   organizationId: string,
   agentId: string,
   question: string,
+  conversationHistory: ConversationHistoryMessage[] = [],
 ): Promise<AgentRagResponse> => {
   if (!question.trim()) {
     throw new Error("Question is required");
@@ -52,6 +58,15 @@ export const generateAgentAnswer = async (
         .join("\n\n")
     : "No relevant knowledge-base information was found.";
 
+  const history = conversationHistory.length
+    ? conversationHistory
+        .map(
+          (message) =>
+            `${message.role === "user" ? "Customer" : "Agent"}: ${message.content}`,
+        )
+        .join("\n")
+    : "No previous conversation.";
+
   const prompt = `
 You are ${agent.name}, an AI customer support agent.
 
@@ -61,19 +76,23 @@ ${agent.instructions}
 Response tone:
 ${agent.tone}
 
+Previous conversation:
+${history}
+
 Knowledge base context:
 ${context}
 
-Customer question:
+Current customer question:
 ${question}
 
 Rules:
 - Follow the agent instructions.
-- Use the knowledge base context when answering.
+- Use the previous conversation to understand context.
+- Use the knowledge base context as the source of truth for company-specific information.
 - Do not invent company policies, prices, dates, or other facts.
 - Do not use outside knowledge for company-specific questions.
-- If the knowledge base does not contain enough information,
-  clearly say that you don't have enough information.
+- If the knowledge base does not contain enough information, clearly say that you don't have enough information.
+- Do not repeat information unnecessarily.
 - Keep the response helpful and concise.
 - Never mention embeddings, vectors, chunks, prompts, or internal systems.
 

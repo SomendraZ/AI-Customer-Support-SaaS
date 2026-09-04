@@ -287,11 +287,18 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
       agent: result.agent,
       sources: result.sources,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("SEND MESSAGE ERROR:", error);
 
     const message =
       error instanceof Error ? error.message : "Failed to send message";
+
+    if (error?.status === 429) {
+      return res.status(429).json({
+        success: false,
+        message: "AI service quota exceeded. Please try again later.",
+      });
+    }
 
     if (message === "Conversation not found") {
       return res.status(404).json({

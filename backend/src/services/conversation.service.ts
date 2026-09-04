@@ -6,6 +6,8 @@ import {
   type AgentRagResponse,
 } from "./agent-rag.service.js";
 
+const MAX_HISTORY_MESSAGES = 10;
+
 export const sendConversationMessage = async (
   organizationId: string,
   userId: string,
@@ -31,18 +33,43 @@ export const sendConversationMessage = async (
     throw new Error("Conversation not found");
   }
 
-  await Message.create({
+  const userMessage = await Message.create({
     conversationId: conversation._id,
     organizationId,
     role: "user",
     content: question.trim(),
   });
 
-  const result = await generateAgentAnswer(
+  const recentMessages = await Message.find({
+    conversationId: conversation._id,
     organizationId,
-    conversation.agentId.toString(),
-    question.trim(),
-  );
+  })
+    .sort({ createdAt: -1 })
+    .limit(MAX_HISTORY_MESSAGES);
+
+  const conversationHistory = recentMessages.reverse().map((message) => ({
+    role: message.role,
+    content: message.content,
+  }));
+
+  let result: AgentRagResponse;
+
+  try {
+    result = await generateAgentAnswer(
+      organizationId,
+      conversation.agentId.toString(),
+      question.trim(),
+      conversationHistory,
+    );
+  } catch (error) {
+    await Message.deleteOne({
+      _id: userMessage._id,
+      conversationId: conversation._id,
+      organizationId,
+    });
+
+    throw error;
+  }
 
   await Message.create({
     conversationId: conversation._id,
