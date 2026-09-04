@@ -63,13 +63,19 @@ interface SendMessageResponse {
 }
 
 const SupportChat = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const requestedConversationId = searchParams.get("conversation");
 
   const [agents, setAgents] = useState<Agent[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState("");
 
   const [conversationId, setConversationId] = useState("");
+
+  const [conversationStatus, setConversationStatus] = useState<
+    "open" | "closed"
+  >("open");
+
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [question, setQuestion] = useState("");
 
@@ -110,7 +116,7 @@ const SupportChat = () => {
                   : requestedConversation.agentId._id;
 
               const agentExists = activeAgents.some(
-                (agent: { _id: string }) => agent._id === agentId,
+                (agent: Agent) => agent._id === agentId,
               );
 
               if (agentExists) {
@@ -134,7 +140,7 @@ const SupportChat = () => {
     };
 
     fetchAgents();
-  }, []);
+  }, [requestedConversationId]);
 
   useEffect(() => {
     const loadConversation = async () => {
@@ -143,6 +149,7 @@ const SupportChat = () => {
         setError("");
         setMessages([]);
         setConversationId("");
+        setConversationStatus("open");
 
         if (requestedConversationId) {
           const conversationResponse = await api.get(
@@ -157,7 +164,10 @@ const SupportChat = () => {
               : conversation.agentId._id;
 
           setSelectedAgentId(agentId);
+
           setConversationId(conversation._id);
+
+          setConversationStatus(conversation.status);
 
           const messagesResponse = await api.get<MessagesResponse>(
             `/conversations/${conversation._id}/messages`,
@@ -204,6 +214,8 @@ const SupportChat = () => {
 
         setConversationId(activeConversation._id);
 
+        setConversationStatus(activeConversation.status);
+
         const messagesResponse = await api.get<MessagesResponse>(
           `/conversations/${activeConversation._id}/messages`,
         );
@@ -222,25 +234,26 @@ const SupportChat = () => {
   }, [selectedAgentId, requestedConversationId]);
 
   const selectedAgent = agents.find((agent) => agent._id === selectedAgentId);
+
   const suggestedQuestions = selectedAgent?.suggestedQuestions ?? [];
 
-  /*
-   * Send message.
-   */
   const handleSubmit: FormEventHandler<HTMLFormElement> = async (event) => {
     event.preventDefault();
 
     const trimmedQuestion = question.trim();
 
-    if (!trimmedQuestion || !conversationId || loading || loadingConversation) {
+    if (
+      conversationStatus === "closed" ||
+      !trimmedQuestion ||
+      !conversationId ||
+      loading ||
+      loadingConversation
+    ) {
       return;
     }
 
     setError("");
 
-    /*
-     * Show the user message immediately.
-     */
     const temporaryUserMessage: ChatMessage = {
       id: crypto.randomUUID(),
       role: "user",
@@ -272,10 +285,6 @@ const SupportChat = () => {
 
       setMessages((currentMessages) => [...currentMessages, assistantMessage]);
     } catch (error: any) {
-      /*
-       * Remove the temporary user message if
-       * the request failed.
-       */
       setMessages((currentMessages) =>
         currentMessages.filter(
           (message) => message.id !== temporaryUserMessage.id,
@@ -292,10 +301,11 @@ const SupportChat = () => {
     setSelectedAgentId(event.target.value);
     setQuestion("");
     setError("");
+    setSearchParams({});
   };
 
   const clearChat = async () => {
-    if (!conversationId) {
+    if (!conversationId || conversationStatus === "closed") {
       return;
     }
 
@@ -304,9 +314,6 @@ const SupportChat = () => {
 
       await api.patch(`/conversations/${conversationId}/close`);
 
-      /*
-       * Create a fresh conversation for the same agent.
-       */
       const response = await api.post<CreateConversationResponse>(
         "/conversations",
         {
@@ -315,7 +322,10 @@ const SupportChat = () => {
       );
 
       setConversationId(response.data.conversation._id);
+      setConversationStatus("open");
       setMessages([]);
+      setQuestion("");
+      setSearchParams({});
     } catch (error: any) {
       setError(error.response?.data?.message || "Failed to clear chat");
     }
@@ -329,8 +339,7 @@ const SupportChat = () => {
 
           <p>Chat with one of your AI support agents.</p>
         </div>
-
-        {messages.length > 0 && (
+        {conversationStatus === "open" && messages.length > 0 && (
           <button
             type="button"
             className="secondary-button"
@@ -365,7 +374,6 @@ const SupportChat = () => {
             </select>
           )}
         </div>
-
         <div className="messages">
           {loadingConversation ? (
             <div className="chat-empty">
@@ -394,6 +402,7 @@ const SupportChat = () => {
                       type="button"
                       key={suggestedQuestion}
                       onClick={() => setQuestion(suggestedQuestion)}
+                      disabled={conversationStatus === "closed"}
                     >
                       {suggestedQuestion}
                     </button>
@@ -454,43 +463,48 @@ const SupportChat = () => {
             </div>
           )}
         </div>
-
         {error && <div className="error-message">{error}</div>}
+        {conversationStatus === "open" ? (
+          <form className="chat-input-container" onSubmit={handleSubmit}>
+            <input
+              type="text"
+              value={question}
+              onChange={(event) => setQuestion(event.target.value)}
+              placeholder={
+                selectedAgent
+                  ? `Ask ${selectedAgent.name}...`
+                  : "Ask a question..."
+              }
+              disabled={
+                loading ||
+                loadingAgents ||
+                loadingConversation ||
+                !conversationId ||
+                agents.length === 0
+              }
+            />
 
-        <form className="chat-input-container" onSubmit={handleSubmit}>
-          <input
-            type="text"
-            value={question}
-            onChange={(event) => setQuestion(event.target.value)}
-            placeholder={
-              selectedAgent
-                ? `Ask ${selectedAgent.name}...`
-                : "Ask a question..."
-            }
-            disabled={
-              loading ||
-              loadingAgents ||
-              loadingConversation ||
-              !conversationId ||
-              agents.length === 0
-            }
-          />
-
-          <button
-            type="submit"
-            className="primary-button"
-            disabled={
-              loading ||
-              loadingAgents ||
-              loadingConversation ||
-              !conversationId ||
-              agents.length === 0 ||
-              !question.trim()
-            }
-          >
-            {loading ? "..." : "Send"}
-          </button>
-        </form>
+            <button
+              type="submit"
+              className="primary-button"
+              disabled={
+                loading ||
+                loadingAgents ||
+                loadingConversation ||
+                !conversationId ||
+                agents.length === 0 ||
+                !question.trim()
+              }
+            >
+              {loading ? "..." : "Send"}
+            </button>
+          </form>
+        ) : (
+          <div className="closed-conversation-message">
+            <span>🔒</span>
+            This conversation is closed.
+          </div>
+        )}
       </div>
     </div>
   );

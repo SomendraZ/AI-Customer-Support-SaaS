@@ -1041,3 +1041,16 @@ input {
   margin: 0 0 20px;
   color: #666;
 }
+
+.closed-conversation-message {
+  padding: 18px;
+  text-align: center;
+  color: #666;
+  font-size: 14px;
+  border-top: 1px solid #e5e7eb;
+  background: #f8f9fa;
+}
+
+.closed-conversation-message span {
+  margin-right: 6px;
+}
