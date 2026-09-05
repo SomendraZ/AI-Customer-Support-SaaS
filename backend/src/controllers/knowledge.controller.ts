@@ -38,18 +38,11 @@ export const uploadDocument = async (
     }
 
     const file = req.file;
-    const text = await extractText(file);
+    const extractedPages = await extractText(file);
+    const text = extractedPages.map((page) => page.text).join("\n");
 
     if (!text.trim()) {
       throw new Error("No text could be extracted from document");
-    }
-
-    if (!text) {
-      res.status(400).json({
-        success: false,
-        message: "Could not extract text from document",
-      });
-      return;
     }
 
     const extension = file.originalname.split(".").pop()?.toLowerCase();
@@ -74,20 +67,21 @@ export const uploadDocument = async (
       uploadedBy: req.user.userId,
     });
 
-    const chunks = chunkText(text);
+    const chunks = chunkText(extractedPages);
 
     const chunkDocuments = [];
 
     for (let index = 0; index < chunks.length; index++) {
-      const content = chunks[index];
+      const chunk = chunks[index];
 
-      const embedding = await generateEmbedding(content);
+      const embedding = await generateEmbedding(chunk.content);
 
       chunkDocuments.push({
         documentId: document._id,
         organizationId: req.user!.organizationId,
-        content,
+        content: chunk.content,
         chunkIndex: index,
+        pageNumber: chunk.pageNumber,
         embedding,
       });
     }

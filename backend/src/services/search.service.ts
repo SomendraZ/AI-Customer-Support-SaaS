@@ -1,6 +1,18 @@
+import { Types } from "mongoose";
 import { DocumentChunk } from "../models/DocumentChunk.js";
 import { generateEmbedding } from "./embedding.service.js";
-import { Types } from "mongoose";
+
+const MIN_SIMILARITY = Number(process.env.RAG_MIN_SIMILARITY || "0.65");
+
+const MAX_SCORE_GAP = Number(process.env.RAG_MAX_SCORE_GAP || "0.15");
+
+if (Number.isNaN(MIN_SIMILARITY) || MIN_SIMILARITY < 0 || MIN_SIMILARITY > 1) {
+  throw new Error("RAG_MIN_SIMILARITY must be a number between 0 and 1");
+}
+
+if (Number.isNaN(MAX_SCORE_GAP) || MAX_SCORE_GAP < 0 || MAX_SCORE_GAP > 1) {
+  throw new Error("RAG_MAX_SCORE_GAP must be a number between 0 and 1");
+}
 
 const cosineSimilarity = (vectorA: number[], vectorB: number[]): number => {
   if (vectorA.length !== vectorB.length) {
@@ -30,6 +42,7 @@ export interface SearchResult {
   documentId: string;
   content: string;
   chunkIndex: number;
+  pageNumber?: number;
   similarity: number;
 }
 
@@ -47,19 +60,34 @@ export const searchKnowledgeBase = async (
   const chunks = await DocumentChunk.find({
     organizationId: new Types.ObjectId(organizationId),
     embedding: { $exists: true, $ne: [] },
-  }).select("_id documentId content chunkIndex embedding");
+  }).select("_id documentId content chunkIndex pageNumber embedding");
 
-  const results: SearchResult[] = chunks.map((chunk) => {
-    const similarity = cosineSimilarity(queryEmbedding, chunk.embedding);
+  const results: SearchResult[] = chunks
+    .map((chunk) => {
+      const similarity = cosineSimilarity(queryEmbedding, chunk.embedding);
 
-    return {
-      chunkId: chunk._id.toString(),
-      documentId: chunk.documentId.toString(),
-      content: chunk.content,
-      chunkIndex: chunk.chunkIndex,
-      similarity,
-    };
-  });
+      return {
+        chunkId: chunk._id.toString(),
+        documentId: chunk.documentId.toString(),
+        content: chunk.content,
+        chunkIndex: chunk.chunkIndex,
+        pageNumber: chunk.pageNumber,
+        similarity,
+      };
+    })
+    .sort((a, b) => b.similarity - a.similarity);
 
-  return results.sort((a, b) => b.similarity - a.similarity).slice(0, limit);
+  const filteredResults = results.filter(
+    (result) => result.similarity >= MIN_SIMILARITY,
+  );
+
+  if (filteredResults.length === 0) {
+    return [];
+  }
+
+  const topSimilarity = filteredResults[0].similarity;
+
+  return filteredResults
+    .filter((result) => topSimilarity - result.similarity <= MAX_SCORE_GAP)
+    .slice(0, limit);
 };

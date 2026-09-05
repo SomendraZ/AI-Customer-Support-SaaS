@@ -11,6 +11,7 @@ export interface IMessage extends Document {
   sources?: {
     chunkId: string;
     documentId: string;
+    pageNumber?: number;
     similarity: number;
   }[];
   createdAt: Date;
@@ -61,6 +62,10 @@ const messageSchema = new Schema<IMessage>(
           documentId: {
             type: String,
             required: true,
+          },
+          pageNumber: {
+            type: Number,
+            min: 1,
           },
           similarity: {
             type: Number,

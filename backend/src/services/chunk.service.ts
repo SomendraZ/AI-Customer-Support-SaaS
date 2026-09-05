@@ -1,35 +1,50 @@
 const DEFAULT_CHUNK_SIZE = 1000;
 const DEFAULT_CHUNK_OVERLAP = 200;
 
+export interface Chunk {
+  content: string;
+  pageNumber?: number;
+}
+
+export interface ChunkablePage {
+  text: string;
+  pageNumber?: number;
+}
+
 export const chunkText = (
-  text: string,
+  pages: ChunkablePage[],
   chunkSize = DEFAULT_CHUNK_SIZE,
   overlap = DEFAULT_CHUNK_OVERLAP,
-): string[] => {
-  const cleanedText = text.replace(/\s+/g, " ").trim();
+): Chunk[] => {
+  const chunks: Chunk[] = [];
 
-  if (!cleanedText) {
-    return [];
-  }
+  for (const page of pages) {
+    const cleanedText = page.text.replace(/\s+/g, " ").trim();
 
-  const chunks: string[] = [];
-
-  let start = 0;
-
-  while (start < cleanedText.length) {
-    const end = Math.min(start + chunkSize, cleanedText.length);
-
-    const chunk = cleanedText.slice(start, end).trim();
-
-    if (chunk) {
-      chunks.push(chunk);
+    if (!cleanedText) {
+      continue;
     }
 
-    if (end >= cleanedText.length) {
-      break;
-    }
+    let start = 0;
 
-    start = end - overlap;
+    while (start < cleanedText.length) {
+      const end = Math.min(start + chunkSize, cleanedText.length);
+
+      const content = cleanedText.slice(start, end).trim();
+
+      if (content) {
+        chunks.push({
+          content,
+          pageNumber: page.pageNumber,
+        });
+      }
+
+      if (end >= cleanedText.length) {
+        break;
+      }
+
+      start = end - overlap;
+    }
   }
 
   return chunks;

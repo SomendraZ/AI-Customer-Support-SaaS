@@ -11,6 +11,7 @@ import AgentForm from "./pages/AgentForm";
 import KnowledgeBase from "./pages/KnowledgeBase";
 import SupportChat from "./pages/SupportChat";
 import Conversations from "./pages/Conversations";
+import Analytics from "./pages/Analytics";
 
 const App = () => {
   return (
@@ -36,6 +37,8 @@ const App = () => {
           <Route path="/support" element={<SupportChat />} />
 
           <Route path="/conversations" element={<Conversations />} />
+
+          <Route path="/analytics" element={<Analytics />} />
         </Route>
       </Route>
     </Routes>

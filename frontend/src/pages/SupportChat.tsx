@@ -1,4 +1,5 @@
 import { type FormEvent, useEffect, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import { useSearchParams } from "react-router-dom";
 import api from "../services/api";
 import type { Agent } from "../types/agent";
@@ -6,6 +7,7 @@ import type { Agent } from "../types/agent";
 interface Source {
   chunkId: string;
   documentId: string;
+  pageNumber?: number;
   similarity: number;
 }
 
@@ -590,7 +592,9 @@ const SupportChat = () => {
                       : selectedAgent?.name || "AI Support"}
                   </div>
 
-                  <p>{message.content}</p>
+                  <div className="message-content">
+                    <ReactMarkdown>{message.content}</ReactMarkdown>
+                  </div>
 
                   {message.status === "sending" && (
                     <span className="message-status">Sending...</span>
@@ -612,12 +616,14 @@ const SupportChat = () => {
 
                   {message.sources && message.sources.length > 0 && (
                     <div className="message-sources">
-                      <span>Sources:</span>
-
                       {message.sources.map((source, index) => (
-                        <span className="source-badge" key={source.chunkId}>
-                          Source {index + 1}
-                        </span>
+                        <div className="message-source" key={source.chunkId}>
+                          <span>📄 Source {index + 1}</span>
+
+                          {source.pageNumber && (
+                            <span>Page {source.pageNumber}</span>
+                          )}
+                        </div>
                       ))}
                     </div>
                   )}

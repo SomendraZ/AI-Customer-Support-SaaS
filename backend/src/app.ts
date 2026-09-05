@@ -9,6 +9,7 @@ import agentRoutes from "./routes/agent.routes.js";
 import knowledgeRoutes from "./routes/knowledge.routes.js";
 import conversationRoutes from "./routes/conversation.routes.js";
 import dashboardRoutes from "./routes/dashboard.routes.js";
+import analyticsRoutes from "./routes/analytics.routes.js";
 
 const app = express();
 
@@ -45,5 +46,6 @@ app.use("/api/agents", agentRoutes);
 app.use("/api/knowledge", knowledgeRoutes);
 app.use("/api/conversations", conversationRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/analytics", analyticsRoutes);
 
 export default app;

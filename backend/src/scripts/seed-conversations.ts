@@ -18,6 +18,15 @@ const seedConversations = async () => {
       throw new Error("No active agents found");
     }
 
+    const now = new Date();
+
+    const createDate = (daysAgo: number) => {
+      const date = new Date(now);
+      date.setDate(date.getDate() - daysAgo);
+      date.setHours(12, 0, 0, 0);
+      return date;
+    };
+
     for (const agent of agents) {
       const userId = agent.createdBy;
       const organizationId = agent.organizationId;
@@ -33,6 +42,8 @@ const seedConversations = async () => {
           : "Account access problem",
         status: "open",
         resolution: "unresolved",
+        createdAt: createDate(0),
+        updatedAt: createDate(0),
       });
 
       if (isRefundAgent) {
@@ -90,6 +101,8 @@ const seedConversations = async () => {
         title: isRefundAgent ? "Refund processing time" : "Password reset help",
         status: "closed",
         resolution: "ai_resolved",
+        createdAt: createDate(1),
+        updatedAt: createDate(1),
       });
 
       if (isRefundAgent) {
@@ -162,6 +175,8 @@ const seedConversations = async () => {
           : "Account issue requiring support",
         status: "closed",
         resolution: "human_resolved",
+        createdAt: createDate(3),
+        updatedAt: createDate(3),
       });
 
       if (isRefundAgent) {
@@ -250,6 +265,8 @@ const seedConversations = async () => {
         title: isRefundAgent ? "Refund eligibility" : "Customer support hours",
         status: "closed",
         resolution: "ai_resolved",
+        createdAt: createDate(5),
+        updatedAt: createDate(5),
       });
 
       if (isRefundAgent) {

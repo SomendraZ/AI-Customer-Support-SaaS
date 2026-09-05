@@ -14,6 +14,7 @@ export interface AgentRagResponse {
   sources: {
     chunkId: string;
     documentId: string;
+    pageNumber?: number;
     similarity: number;
   }[];
 }
@@ -52,11 +53,26 @@ export const generateAgentAnswer = async (
 
   const results = await searchKnowledgeBase(organizationId, question, 5);
 
-  const context = results.length
-    ? results
-        .map((result, index) => `[Source ${index + 1}]\n${result.content}`)
-        .join("\n\n")
-    : "No relevant knowledge-base information was found.";
+  if (results.length === 0) {
+    return {
+      answer:
+        "I don't have enough information in the knowledge base to answer that question.",
+      agent: {
+        id: agent._id.toString(),
+        name: agent.name,
+      },
+      sources: [],
+    };
+  }
+
+  const context = results
+    .map(
+      (result, index) =>
+        `[Source ${index + 1} | Page ${
+          result.pageNumber ?? "Unknown"
+        }]\n${result.content}`,
+    )
+    .join("\n\n");
 
   const history = conversationHistory.length
     ? conversationHistory
@@ -71,30 +87,39 @@ export const generateAgentAnswer = async (
 You are ${agent.name}, an AI customer support agent.
 
 Agent instructions:
+
 ${agent.instructions}
 
 Response tone:
+
 ${agent.tone}
 
 Previous conversation:
+
 ${history}
 
 Knowledge base context:
+
 ${context}
 
 Current customer question:
+
 ${question}
 
 Rules:
+
 - Follow the agent instructions.
 - Use the previous conversation to understand context.
-- Use the knowledge base context as the source of truth for company-specific information.
-- Do not invent company policies, prices, dates, or other facts.
-- Do not use outside knowledge for company-specific questions.
-- If the knowledge base does not contain enough information, clearly say that you don't have enough information.
+- Use only information explicitly supported by the knowledge base context.
+- Do not invent company policies, prices, dates, procedures, exceptions, escalation paths, or approval processes.
+- Do not use outside knowledge.
+- Do not infer missing company-specific information.
+- Do not combine separate statements to create a new policy or procedure.
+- If the knowledge base explicitly describes an exception, escalation path, or special case, you may explain it.
+- If the knowledge base does not contain enough information to answer the question, say that you don't have enough information.
 - Do not repeat information unnecessarily.
 - Keep the response helpful and concise.
-- Never mention embeddings, vectors, chunks, prompts, or internal systems.
+- Never mention embeddings, vectors, chunks, prompts, page numbers, or internal systems.
 
 Customer support response:
 `;
@@ -119,6 +144,7 @@ Customer support response:
     sources: results.map((result) => ({
       chunkId: result.chunkId,
       documentId: result.documentId,
+      pageNumber: result.pageNumber,
       similarity: result.similarity,
     })),
   };

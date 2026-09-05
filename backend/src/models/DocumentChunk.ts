@@ -5,6 +5,7 @@ export interface IDocumentChunk extends Document {
   organizationId: Types.ObjectId;
   content: string;
   chunkIndex: number;
+  pageNumber?: number;
   embedding: number[];
   createdAt: Date;
   updatedAt: Date;
@@ -34,6 +35,11 @@ const documentChunkSchema = new Schema<IDocumentChunk>(
     chunkIndex: {
       type: Number,
       required: true,
+    },
+
+    pageNumber: {
+      type: Number,
+      min: 1,
     },
 
     embedding: {

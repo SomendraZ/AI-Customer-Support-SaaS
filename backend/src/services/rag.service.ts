@@ -8,6 +8,7 @@ export interface RagResponse {
   sources: {
     chunkId: string;
     documentId: string;
+    pageNumber?: number;
     similarity: number;
   }[];
 }
@@ -70,6 +71,7 @@ Answer:
     sources: results.map((result) => ({
       chunkId: result.chunkId,
       documentId: result.documentId,
+      pageNumber: result.pageNumber,
       similarity: result.similarity,
     })),
   };
