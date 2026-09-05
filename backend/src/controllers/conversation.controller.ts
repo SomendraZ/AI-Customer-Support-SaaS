@@ -53,7 +53,7 @@ export const createConversation = async (req: AuthRequest, res: Response) => {
       organizationId: req.user.organizationId,
       agentId: agent._id,
       userId,
-      title: title?.trim() || `${agent.name} Conversation`,
+      title: title?.trim(),
       status: "open",
       resolution: "unresolved",
     });
@@ -234,6 +234,7 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
     return res.status(200).json({
       success: true,
       answer: result.answer,
+      title: result.title,
       agent: result.agent,
       sources: result.sources,
     });

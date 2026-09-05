@@ -33,6 +33,11 @@ export const sendConversationMessage = async (
     throw new Error("Conversation not found");
   }
 
+  const existingMessageCount = await Message.countDocuments({
+    conversationId: conversation._id,
+    organizationId,
+  });
+
   const userMessage = await Message.create({
     conversationId: conversation._id,
     organizationId,
@@ -61,6 +66,7 @@ export const sendConversationMessage = async (
       conversation.agentId.toString(),
       question.trim(),
       conversationHistory,
+      existingMessageCount === 0,
     );
   } catch (error) {
     await Message.findByIdAndUpdate(userMessage._id, {
@@ -78,6 +84,17 @@ export const sendConversationMessage = async (
     sources: result.sources,
   });
 
+  const updateData: {
+    updatedAt: Date;
+    title?: string;
+  } = {
+    updatedAt: new Date(),
+  };
+
+  if (existingMessageCount === 0 && result.title) {
+    updateData.title = result.title;
+  }
+
   await Conversation.updateOne(
     {
       _id: conversation._id,
@@ -85,9 +102,7 @@ export const sendConversationMessage = async (
       userId,
     },
     {
-      $set: {
-        updatedAt: new Date(),
-      },
+      $set: updateData,
     },
   );
 

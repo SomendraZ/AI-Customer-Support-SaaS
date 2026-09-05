@@ -866,8 +866,9 @@ input {
 
 .chat-agent-selector {
   display: flex;
+  flex-direction: row;
+  justify-content: space-between;
   align-items: center;
-  gap: 12px;
   padding: 14px 16px;
   border-bottom: 1px solid #ddd;
 }
@@ -875,14 +876,6 @@ input {
 .chat-agent-selector label {
   font-size: 13px;
   font-weight: 600;
-}
-
-.chat-agent-selector select {
-  min-width: 220px;
-  padding: 8px 12px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  background: white;
 }
 
 .suggested-question-list {
@@ -1842,4 +1835,247 @@ input {
   height: 3px;
   border-radius: 2px;
   display: inline-block;
+}
+
+.conversations-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.conversations-header h1 {
+  margin: 0 0 6px;
+}
+
+.conversations-header p {
+  margin: 0;
+  color: #666;
+  font-size: 13px;
+}
+
+.new-chat-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.new-chat-modal {
+  width: 100%;
+  max-width: 520px;
+  max-height: 80vh;
+  overflow-y: auto;
+  border-radius: 12px;
+  background: white;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+}
+
+.new-chat-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px;
+  border-bottom: 1px solid #eee;
+}
+
+.new-chat-header h2 {
+  margin: 0 0 5px;
+  font-size: 18px;
+}
+
+.new-chat-header p {
+  margin: 0;
+  color: #777;
+  font-size: 13px;
+}
+
+.new-chat-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #666;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.new-chat-close:hover {
+  background: #f3f4f6;
+}
+
+.agent-selection-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px;
+}
+
+.agent-selection-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: white;
+  text-align: left;
+  cursor: pointer;
+}
+
+.agent-selection-card:hover {
+  background: #f8f9fa;
+}
+
+.agent-selection-card.selected {
+  border-color: #4f46e5;
+  background: #f5f3ff;
+}
+
+.agent-selection-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: #f3f4f6;
+}
+
+.agent-selection-info {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.agent-selection-info strong {
+  color: #222;
+  font-size: 14px;
+}
+
+.agent-selection-info span {
+  overflow: hidden;
+  color: #777;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-selection-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border: 1px solid #ccc;
+  border-radius: 50%;
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.agent-selection-card.selected .agent-selection-check {
+  border-color: #4f46e5;
+  background: #4f46e5;
+}
+
+.new-chat-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 20px;
+  border-top: 1px solid #eee;
+}
+
+.new-chat-error {
+  margin: 0 20px 16px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: #fff1f2;
+  color: #b42318;
+  font-size: 12px;
+}
+
+.new-chat-empty {
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.new-chat-empty strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 14px;
+}
+
+.new-chat-empty p {
+  margin: 0;
+  color: #777;
+  font-size: 12px;
+}
+
+@media (max-width: 600px) {
+  .conversations-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .new-chat-overlay {
+    padding: 12px;
+  }
+
+  .new-chat-modal {
+    max-height: 90vh;
+  }
+}
+
+.new-chat-title-field {
+  padding: 20px 20px 0;
+}
+
+.new-chat-title-field label {
+  display: block;
+  margin-bottom: 7px;
+  color: #333;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.new-chat-title-field input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 7px;
+  outline: none;
+  font-size: 13px;
+}
+
+.new-chat-title-field input:focus {
+  border-color: #4f46e5;
+}
+
+.chat-title {
+  display: block;
+  font-size: 15px;
+  color: #222;
+}
+
+.chat-agent-name {
+  display: block;
+  margin-top: 4px;
+  color: #777;
+  font-size: 12px;
 }

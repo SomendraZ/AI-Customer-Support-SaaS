@@ -58,6 +58,7 @@ interface CreateConversationResponse {
 interface SendMessageResponse {
   success: boolean;
   answer: string;
+  title?: string;
   agent: {
     id: string;
     name: string;
@@ -69,9 +70,10 @@ interface SendMessageResponse {
 }
 
 const SupportChat = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
 
   const requestedConversationId = searchParams.get("conversation");
+  const [conversationTitle, setConversationTitle] = useState("");
 
   const [agents, setAgents] = useState<Agent[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState("");
@@ -183,6 +185,7 @@ const SupportChat = () => {
 
           setSelectedAgentId(agentId);
           setConversationId(conversation._id);
+          setConversationTitle(conversation.title || "Untitled Conversation");
           setConversationStatus(conversation.status);
           setConversationResolution(conversation.resolution || "unresolved");
 
@@ -307,6 +310,10 @@ const SupportChat = () => {
         },
       );
 
+      if (response.data.title) {
+        setConversationTitle(response.data.title);
+      }
+
       setMessages((currentMessages) => [
         ...currentMessages.map((message) =>
           message.id === temporaryMessageId
@@ -414,13 +421,6 @@ const SupportChat = () => {
     }
   };
 
-  const handleAgentChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedAgentId(event.target.value);
-    setQuestion("");
-    setError("");
-    setSearchParams({});
-  };
-
   const resolveConversation = async (
     resolution: "ai_resolved" | "human_resolved",
   ) => {
@@ -500,31 +500,15 @@ const SupportChat = () => {
 
       <div className="chat-container">
         <div className="chat-agent-selector">
-          <label htmlFor="agent">AI Agent</label>
+          <div>
+            <strong className="chat-title">
+              {conversationTitle || "Untitled Conversation"}
+            </strong>
 
-          {loadingAgents ? (
-            <span>Loading agents...</span>
-          ) : agents.length === 0 ? (
-            <span>No active agents available.</span>
-          ) : (
-            <select
-              id="agent"
-              value={selectedAgentId}
-              onChange={handleAgentChange}
-              disabled={
-                conversationStatus === "closed" ||
-                loadingConversation ||
-                loading ||
-                resolving
-              }
-            >
-              {agents.map((agent) => (
-                <option key={agent._id} value={agent._id}>
-                  {agent.name}
-                </option>
-              ))}
-            </select>
-          )}
+            <span className="chat-agent-name">
+              {selectedAgent?.name || "AI Support"}
+            </span>
+          </div>
 
           {conversationStatus === "closed" && (
             <strong
@@ -600,19 +584,19 @@ const SupportChat = () => {
                     <span className="message-status">Sending...</span>
                   )}
 
-                  {message.status === "failed" && (
-                    <div className="message-failed">
-                      <span>Failed to send</span>
-
-                      <button
-                        type="button"
-                        onClick={() => retryMessage(message)}
-                        disabled={loading}
-                      >
-                        Retry
-                      </button>
-                    </div>
-                  )}
+                  {message.status === "failed" &&
+                    conversationStatus === "open" && (
+                      <div className="message-failed">
+                        <span>Failed to send</span>
+                        <button
+                          type="button"
+                          onClick={() => retryMessage(message)}
+                          disabled={loading}
+                        >
+                          Retry
+                        </button>
+                      </div>
+                    )}
 
                   {message.sources && message.sources.length > 0 && (
                     <div className="message-sources">

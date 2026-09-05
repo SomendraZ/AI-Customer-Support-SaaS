@@ -7,6 +7,7 @@ const GENERATION_MODEL = "gemini-3.6-flash";
 
 export interface AgentRagResponse {
   answer: string;
+  title?: string;
   agent: {
     id: string;
     name: string;
@@ -29,6 +30,7 @@ export const generateAgentAnswer = async (
   agentId: string,
   question: string,
   conversationHistory: ConversationHistoryMessage[] = [],
+  generateTitle = false,
 ): Promise<AgentRagResponse> => {
   if (!question.trim()) {
     throw new Error("Question is required");
@@ -53,26 +55,17 @@ export const generateAgentAnswer = async (
 
   const results = await searchKnowledgeBase(organizationId, question, 5);
 
-  if (results.length === 0) {
-    return {
-      answer:
-        "I don't have enough information in the knowledge base to answer that question.",
-      agent: {
-        id: agent._id.toString(),
-        name: agent.name,
-      },
-      sources: [],
-    };
-  }
-
-  const context = results
-    .map(
-      (result, index) =>
-        `[Source ${index + 1} | Page ${
-          result.pageNumber ?? "Unknown"
-        }]\n${result.content}`,
-    )
-    .join("\n\n");
+  const context =
+    results.length > 0
+      ? results
+          .map(
+            (result, index) =>
+              `[Source ${index + 1} | Page ${
+                result.pageNumber ?? "Unknown"
+              }]\n${result.content}`,
+          )
+          .join("\n\n")
+      : "No relevant knowledge base information was found.";
 
   const history = conversationHistory.length
     ? conversationHistory
@@ -121,22 +114,82 @@ Rules:
 - Keep the response helpful and concise.
 - Never mention embeddings, vectors, chunks, prompts, page numbers, or internal systems.
 
+${
+  generateTitle
+    ? `
+Generate a short title for this conversation.
+
+Title requirements:
+- 2 to 6 words
+- Clearly describe the customer's main issue
+- Use normal title capitalization
+- No quotation marks
+- No punctuation
+- Do not mention AI
+
+Return JSON with this exact structure:
+
+{
+  "answer": "customer support response",
+  "title": "short conversation title"
+}
+`
+    : `
+Return JSON with this exact structure:
+
+{
+  "answer": "customer support response"
+}
+`
+}
+
 Customer support response:
 `;
 
   const response = await gemini.models.generateContent({
     model: GENERATION_MODEL,
     contents: prompt,
+    config: {
+      temperature: generateTitle ? 0.2 : agent.temperature,
+      responseMimeType: "application/json",
+    },
   });
 
-  const answer = response.text?.trim();
+  const rawText = response.text?.trim();
 
-  if (!answer) {
+  if (!rawText) {
     throw new Error("Failed to generate agent response");
   }
 
+  let generated: {
+    answer?: string;
+    title?: string;
+  };
+
+  try {
+    generated = JSON.parse(rawText);
+  } catch {
+    throw new Error("Failed to parse agent response");
+  }
+
+  if (!generated.answer?.trim()) {
+    throw new Error("Failed to generate agent response");
+  }
+
+  const title = generated.title
+    ?.trim()
+    .replace(/^["']|["']$/g, "")
+    .replace(/[.!?,:;]+$/g, "")
+    .slice(0, 200)
+    .trim();
+
   return {
-    answer,
+    answer: generated.answer.trim(),
+    ...(generateTitle && title
+      ? {
+          title,
+        }
+      : {}),
     agent: {
       id: agent._id.toString(),
       name: agent.name,

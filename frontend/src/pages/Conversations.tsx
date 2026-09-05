@@ -17,10 +17,11 @@ interface Conversation {
   updatedAt: string;
 }
 
-interface ConversationsResponse {
-  success: boolean;
-  count: number;
-  conversations: Conversation[];
+interface Agent {
+  _id: string;
+  name: string;
+  description?: string;
+  status: "active" | "inactive";
 }
 
 type ConversationFilter =
@@ -34,6 +35,11 @@ const Conversations = () => {
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [filter, setFilter] = useState<ConversationFilter>("all");
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [showNewChat, setShowNewChat] = useState(false);
+  const [selectedAgentId, setSelectedAgentId] = useState("");
+  const [creatingConversation, setCreatingConversation] = useState(false);
+  const [newChatError, setNewChatError] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -44,9 +50,18 @@ const Conversations = () => {
         setLoading(true);
         setError("");
 
-        const response = await api.get<ConversationsResponse>("/conversations");
+        const [conversationsResponse, agentsResponse] = await Promise.all([
+          api.get("/conversations"),
+          api.get("/agents"),
+        ]);
 
-        setConversations(response.data.conversations);
+        setConversations(conversationsResponse.data.conversations || []);
+
+        setAgents(
+          (agentsResponse.data.agents || []).filter(
+            (agent: Agent) => agent.status === "active",
+          ),
+        );
       } catch (error: any) {
         setError(
           error.response?.data?.message || "Failed to load conversations",
@@ -77,14 +92,53 @@ const Conversations = () => {
     );
   }, [conversations, filter]);
 
+  const handleCreateConversation = async () => {
+    if (!selectedAgentId) {
+      setNewChatError("Please select an AI agent.");
+      return;
+    }
+
+    try {
+      setCreatingConversation(true);
+      setNewChatError("");
+
+      const response = await api.post("/conversations", {
+        agentId: selectedAgentId,
+      });
+
+      const conversation = response.data.conversation;
+
+      setShowNewChat(false);
+      setSelectedAgentId("");
+
+      navigate(`/support?conversation=${conversation._id}`);
+    } catch (error: any) {
+      setNewChatError(
+        error.response?.data?.message || "Failed to create conversation",
+      );
+    } finally {
+      setCreatingConversation(false);
+    }
+  };
+
   return (
     <div className="conversations-page">
       <header className="conversations-header">
         <div>
           <h1>Conversations</h1>
-
-          <p>View and manage your AI support conversations.</p>
+          <p>View and manage customer conversations.</p>
         </div>
+
+        <button
+          className="primary-button"
+          onClick={() => {
+            setShowNewChat(true);
+            setNewChatError("");
+            setSelectedAgentId("");
+          }}
+        >
+          + New Chat
+        </button>
       </header>
 
       {error && <div className="error-message">{error}</div>}
@@ -191,6 +245,90 @@ const Conversations = () => {
               </div>
             </button>
           ))}
+        </div>
+      )}
+      {showNewChat && (
+        <div className="new-chat-overlay" onClick={() => setShowNewChat(false)}>
+          <div
+            className="new-chat-modal"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="new-chat-header">
+              <div>
+                <h2>Start New Chat</h2>
+                <p>Choose an AI agent for this conversation.</p>
+              </div>
+
+              <button
+                type="button"
+                className="new-chat-close"
+                onClick={() => setShowNewChat(false)}
+              >
+                ×
+              </button>
+            </div>
+
+            {agents.length === 0 ? (
+              <div className="new-chat-empty">
+                <strong>No active AI agents</strong>
+                <p>
+                  Create and activate an AI agent before starting a
+                  conversation.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="agent-selection-list">
+                  {agents.map((agent) => (
+                    <button
+                      type="button"
+                      key={agent._id}
+                      className={`agent-selection-card ${
+                        selectedAgentId === agent._id ? "selected" : ""
+                      }`}
+                      onClick={() => setSelectedAgentId(agent._id)}
+                    >
+                      <div className="agent-selection-icon">🤖</div>
+
+                      <div className="agent-selection-info">
+                        <strong>{agent.name}</strong>
+
+                        {agent.description && <span>{agent.description}</span>}
+                      </div>
+
+                      <div className="agent-selection-check">
+                        {selectedAgentId === agent._id ? "✓" : ""}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                {newChatError && (
+                  <div className="new-chat-error">{newChatError}</div>
+                )}
+
+                <div className="new-chat-actions">
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => setShowNewChat(false)}
+                    disabled={creatingConversation}
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="button"
+                    className="primary-button"
+                    onClick={handleCreateConversation}
+                    disabled={!selectedAgentId || creatingConversation}
+                  >
+                    {creatingConversation ? "Starting..." : "Start Chat"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
     </div>
