@@ -1112,6 +1112,24 @@ input {
   background: #eef2ff;
   color: #4f46e5;
 }
+.conversation-resolution-badge.open {
+  background: #fff4e5;
+  color: #b45309;
+}
+
+.conversation-updated {
+  display: block;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.message-time {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: bold;
+  color: #777;
+}
 
 .conversation-filters {
   display: flex;
@@ -1687,11 +1705,6 @@ input {
 .recent-conversation-meta time {
   color: #888;
   font-size: 11px;
-}
-
-.conversation-resolution-badge.unresolved {
-  background: #f3f4f6;
-  color: #666;
 }
 
 .dashboard-empty {

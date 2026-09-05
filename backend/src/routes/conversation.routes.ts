@@ -2,6 +2,7 @@ import { Router } from "express";
 import { protect } from "../middleware/auth.middleware.js";
 
 import {
+  createFirstConversation,
   createConversation,
   getConversations,
   getConversation,
@@ -14,6 +15,8 @@ import {
 const router = Router();
 
 router.use(protect);
+
+router.post("/first-message", protect, createFirstConversation);
 
 router.post("/", createConversation);
 

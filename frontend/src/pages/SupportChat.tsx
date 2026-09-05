@@ -1,6 +1,6 @@
 import { type FormEvent, useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import api from "../services/api";
 import type { Agent } from "../types/agent";
 
@@ -50,11 +50,6 @@ interface MessagesResponse {
   messages: ChatMessage[];
 }
 
-interface CreateConversationResponse {
-  success: boolean;
-  conversation: Conversation;
-}
-
 interface SendMessageResponse {
   success: boolean;
   answer: string;
@@ -71,8 +66,10 @@ interface SendMessageResponse {
 
 const SupportChat = () => {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const requestedConversationId = searchParams.get("conversation");
+  const requestedAgentId = searchParams.get("agent");
   const [conversationTitle, setConversationTitle] = useState("");
 
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -148,6 +145,17 @@ const SupportChat = () => {
           }
         }
 
+        if (requestedAgentId) {
+          const requestedAgent = activeAgents.find(
+            (agent: Agent) => agent._id === requestedAgentId,
+          );
+
+          if (requestedAgent) {
+            setSelectedAgentId(requestedAgent._id);
+            return;
+          }
+        }
+
         if (activeAgents.length > 0) {
           setSelectedAgentId(activeAgents[0]._id);
         }
@@ -159,85 +167,44 @@ const SupportChat = () => {
     };
 
     fetchAgents();
-  }, [requestedConversationId]);
+  }, [requestedConversationId, requestedAgentId]);
 
   useEffect(() => {
     const loadConversation = async () => {
+      if (!requestedConversationId) {
+        setLoadingConversation(false);
+        return;
+      }
+
       try {
         setLoadingConversation(true);
         setError("");
         setMessages([]);
         setConversationId("");
+        setConversationTitle("");
         setConversationStatus("open");
+        setConversationResolution("unresolved");
         setShowResolveOptions(false);
 
-        if (requestedConversationId) {
-          const conversationResponse = await api.get(
-            `/conversations/${requestedConversationId}`,
-          );
-
-          const conversation = conversationResponse.data.conversation;
-
-          const agentId =
-            typeof conversation.agentId === "string"
-              ? conversation.agentId
-              : conversation.agentId._id;
-
-          setSelectedAgentId(agentId);
-          setConversationId(conversation._id);
-          setConversationTitle(conversation.title || "Untitled Conversation");
-          setConversationStatus(conversation.status);
-          setConversationResolution(conversation.resolution || "unresolved");
-
-          const messagesResponse = await api.get<MessagesResponse>(
-            `/conversations/${conversation._id}/messages`,
-          );
-
-          setMessages(messagesResponse.data.messages);
-
-          return;
-        }
-
-        if (!selectedAgentId) {
-          return;
-        }
-
-        const response = await api.get<ConversationsResponse>("/conversations");
-
-        const existingConversation = response.data.conversations.find(
-          (conversation) => {
-            const agentId =
-              typeof conversation.agentId === "string"
-                ? conversation.agentId
-                : conversation.agentId._id;
-
-            return (
-              agentId === selectedAgentId && conversation.status === "open"
-            );
-          },
+        const conversationResponse = await api.get(
+          `/conversations/${requestedConversationId}`,
         );
 
-        let activeConversation: Conversation;
+        const conversation = conversationResponse.data.conversation;
 
-        if (existingConversation) {
-          activeConversation = existingConversation;
-        } else {
-          const createResponse = await api.post<CreateConversationResponse>(
-            "/conversations",
-            {
-              agentId: selectedAgentId,
-            },
-          );
+        const agentId =
+          typeof conversation.agentId === "string"
+            ? conversation.agentId
+            : conversation.agentId._id;
 
-          activeConversation = createResponse.data.conversation;
-        }
-
-        setConversationId(activeConversation._id);
-
-        setConversationStatus(activeConversation.status);
+        setSelectedAgentId(agentId);
+        setConversationId(conversation._id);
+        setConversationTitle(conversation.title || "");
+        setConversationStatus(conversation.status);
+        setConversationResolution(conversation.resolution || "unresolved");
 
         const messagesResponse = await api.get<MessagesResponse>(
-          `/conversations/${activeConversation._id}/messages`,
+          `/conversations/${conversation._id}/messages`,
         );
 
         setMessages(messagesResponse.data.messages);
@@ -251,7 +218,7 @@ const SupportChat = () => {
     };
 
     loadConversation();
-  }, [selectedAgentId, requestedConversationId]);
+  }, [requestedConversationId]);
 
   const selectedAgent = agents.find((agent) => agent._id === selectedAgentId);
 
@@ -263,7 +230,6 @@ const SupportChat = () => {
     if (
       conversationStatus === "closed" ||
       !trimmedQuestion ||
-      !conversationId ||
       loading ||
       loadingConversation
     ) {
@@ -290,6 +256,7 @@ const SupportChat = () => {
         id: temporaryMessageId,
         role: "user",
         content: trimmedQuestion,
+        createdAt: new Date().toISOString(),
         status: "sending",
       };
 
@@ -303,12 +270,42 @@ const SupportChat = () => {
     setLoading(true);
 
     try {
-      const response = await api.post<SendMessageResponse>(
-        `/conversations/${conversationId}/messages`,
-        {
+      let response: {
+        data: SendMessageResponse & {
+          conversationId?: string;
+        };
+      };
+
+      // First message of a new chat
+      if (!conversationId) {
+        if (!selectedAgentId) {
+          throw new Error("AI agent is required");
+        }
+
+        response = await api.post("/conversations/first-message", {
+          agentId: selectedAgentId,
           question: trimmedQuestion,
-        },
-      );
+        });
+
+        const newConversationId = response.data.conversationId;
+
+        if (!newConversationId) {
+          throw new Error("Conversation ID was not returned");
+        }
+
+        setConversationId(newConversationId);
+
+        // Change URL only after backend successfully
+        // generated the answer and created the conversation.
+        navigate(`/support?conversation=${newConversationId}`, {
+          replace: true,
+        });
+      } else {
+        // Existing conversation
+        response = await api.post(`/conversations/${conversationId}/messages`, {
+          question: trimmedQuestion,
+        });
+      }
 
       if (response.data.title) {
         setConversationTitle(response.data.title);
@@ -324,10 +321,11 @@ const SupportChat = () => {
             : message,
         ),
         {
-          id: crypto.randomUUID(),
+          id: response.data.assistantMessage?._id || crypto.randomUUID(),
           role: "assistant",
           content: response.data.answer,
           sources: response.data.sources,
+          createdAt: new Date().toISOString(),
           status: "completed",
         },
       ]);
@@ -501,9 +499,9 @@ const SupportChat = () => {
       <div className="chat-container">
         <div className="chat-agent-selector">
           <div>
-            <strong className="chat-title">
-              {conversationTitle || "Untitled Conversation"}
-            </strong>
+            {conversationTitle && (
+              <strong className="chat-title">{conversationTitle}</strong>
+            )}
 
             <span className="chat-agent-name">
               {selectedAgent?.name || "AI Support"}
@@ -575,6 +573,19 @@ const SupportChat = () => {
                       ? "You"
                       : selectedAgent?.name || "AI Support"}
                   </div>
+
+                  {message.createdAt && (
+                    <span className="message-time">
+                      {new Date(message.createdAt).toLocaleString("en-IN", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: true,
+                      })}
+                    </span>
+                  )}
 
                   <div className="message-content">
                     <ReactMarkdown>{message.content}</ReactMarkdown>
@@ -653,7 +664,6 @@ const SupportChat = () => {
                 loadingAgents ||
                 loadingConversation ||
                 resolving ||
-                !conversationId ||
                 agents.length === 0
               }
             />
@@ -666,7 +676,6 @@ const SupportChat = () => {
                 loadingAgents ||
                 loadingConversation ||
                 resolving ||
-                !conversationId ||
                 agents.length === 0 ||
                 !question.trim()
               }

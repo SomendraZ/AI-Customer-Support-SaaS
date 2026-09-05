@@ -6,8 +6,97 @@ import { Agent } from "../models/Agent.js";
 import { AuthRequest } from "../middleware/auth.middleware.js";
 import {
   retryFailedMessage,
+  sendFirstConversationMessage,
   sendConversationMessage,
 } from "../services/conversation.service.js";
+
+export const createFirstConversation = async (
+  req: AuthRequest,
+  res: Response,
+) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Not authenticated",
+      });
+    }
+
+    const { agentId, question } = req.body;
+
+    if (!agentId || !Types.ObjectId.isValid(agentId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid agent ID is required",
+      });
+    }
+
+    if (!question?.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Question is required",
+      });
+    }
+
+    const result = await sendFirstConversationMessage(
+      req.user.organizationId,
+      req.user.userId,
+      agentId,
+      question,
+    );
+
+    return res.status(201).json({
+      success: true,
+      conversationId: result.conversationId,
+      answer: result.answer,
+      title: result.title,
+      agent: result.agent,
+      sources: result.sources,
+    });
+  } catch (error: any) {
+    console.error("SEND FIRST CONVERSATION MESSAGE ERROR:", error);
+
+    if (error?.status === 429) {
+      return res.status(429).json({
+        success: false,
+        message: "AI service quota exceeded. Please try again later.",
+      });
+    }
+
+    if (error instanceof Error && error.message === "Question is required") {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    if (error instanceof Error && error.message === "Invalid agent ID") {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    if (error instanceof Error && error.message === "Agent not found") {
+      return res.status(404).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    if (error instanceof Error && error.message === "Agent is inactive") {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to send first conversation message",
+    });
+  }
+};
 
 export const createConversation = async (req: AuthRequest, res: Response) => {
   try {

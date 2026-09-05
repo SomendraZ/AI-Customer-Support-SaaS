@@ -8,6 +8,75 @@ import {
 
 const MAX_HISTORY_MESSAGES = 10;
 
+export const sendFirstConversationMessage = async (
+  organizationId: string,
+  userId: string,
+  agentId: string,
+  question: string,
+): Promise<AgentRagResponse & { conversationId: string }> => {
+  if (!Types.ObjectId.isValid(agentId)) {
+    throw new Error("Invalid agent ID");
+  }
+
+  if (!question.trim()) {
+    throw new Error("Question is required");
+  }
+
+  const result = await generateAgentAnswer(
+    organizationId,
+    agentId,
+    question.trim(),
+    [],
+    true,
+  );
+
+  const conversation = await Conversation.create({
+    organizationId,
+    agentId,
+    userId,
+    title: result.title,
+    status: "open",
+    resolution: "unresolved",
+  });
+
+  try {
+    await Message.create({
+      conversationId: conversation._id,
+      organizationId,
+      role: "user",
+      content: question.trim(),
+      status: "completed",
+    });
+
+    await Message.create({
+      conversationId: conversation._id,
+      organizationId,
+      role: "assistant",
+      content: result.answer,
+      status: "completed",
+      sources: result.sources,
+    });
+  } catch (error) {
+    await Message.deleteMany({
+      conversationId: conversation._id,
+      organizationId,
+    });
+
+    await Conversation.deleteOne({
+      _id: conversation._id,
+      organizationId,
+      userId,
+    });
+
+    throw error;
+  }
+
+  return {
+    ...result,
+    conversationId: conversation._id.toString(),
+  };
+};
+
 export const sendConversationMessage = async (
   organizationId: string,
   userId: string,

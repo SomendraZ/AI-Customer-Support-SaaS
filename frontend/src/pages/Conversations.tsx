@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 
@@ -44,35 +44,33 @@ const Conversations = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    const fetchConversations = async () => {
-      try {
-        setLoading(true);
-        setError("");
+  const fetchConversations = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError("");
 
-        const [conversationsResponse, agentsResponse] = await Promise.all([
-          api.get("/conversations"),
-          api.get("/agents"),
-        ]);
+      const [conversationsResponse, agentsResponse] = await Promise.all([
+        api.get("/conversations"),
+        api.get("/agents"),
+      ]);
 
-        setConversations(conversationsResponse.data.conversations || []);
+      setConversations(conversationsResponse.data.conversations || []);
 
-        setAgents(
-          (agentsResponse.data.agents || []).filter(
-            (agent: Agent) => agent.status === "active",
-          ),
-        );
-      } catch (error: any) {
-        setError(
-          error.response?.data?.message || "Failed to load conversations",
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchConversations();
+      setAgents(
+        (agentsResponse.data.agents || []).filter(
+          (agent: Agent) => agent.status === "active",
+        ),
+      );
+    } catch (error: any) {
+      setError(error.response?.data?.message || "Failed to load conversations");
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchConversations();
+  }, [fetchConversations]);
 
   const getAgentName = (agentId: Conversation["agentId"]) => {
     if (typeof agentId === "string") {
@@ -92,33 +90,17 @@ const Conversations = () => {
     );
   }, [conversations, filter]);
 
-  const handleCreateConversation = async () => {
+  const handleCreateConversation = () => {
     if (!selectedAgentId) {
       setNewChatError("Please select an AI agent.");
       return;
     }
 
-    try {
-      setCreatingConversation(true);
-      setNewChatError("");
+    setShowNewChat(false);
+    setSelectedAgentId("");
+    setNewChatError("");
 
-      const response = await api.post("/conversations", {
-        agentId: selectedAgentId,
-      });
-
-      const conversation = response.data.conversation;
-
-      setShowNewChat(false);
-      setSelectedAgentId("");
-
-      navigate(`/support?conversation=${conversation._id}`);
-    } catch (error: any) {
-      setNewChatError(
-        error.response?.data?.message || "Failed to create conversation",
-      );
-    } finally {
-      setCreatingConversation(false);
-    }
+    navigate(`/support?new=true&agent=${selectedAgentId}`);
   };
 
   return (
@@ -128,7 +110,14 @@ const Conversations = () => {
           <h1>Conversations</h1>
           <p>View and manage customer conversations.</p>
         </div>
-
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={fetchConversations}
+          disabled={loading}
+        >
+          {loading ? "Refreshing..." : "Refresh"}
+        </button>
         <button
           className="primary-button"
           onClick={() => {
@@ -231,6 +220,13 @@ const Conversations = () => {
               </div>
 
               <div className="conversation-card-meta">
+                {conversation.status === "open" &&
+                  conversation.resolution === "unresolved" && (
+                    <span className="conversation-resolution-badge open">
+                      Open
+                    </span>
+                  )}
+
                 {conversation.resolution === "ai_resolved" && (
                   <span className="conversation-resolution-badge ai_resolved">
                     AI Resolved
@@ -242,6 +238,10 @@ const Conversations = () => {
                     Human Resolved
                   </span>
                 )}
+                <span className="conversation-updated">
+                  Last Updated at{" "}
+                  {new Date(conversation.updatedAt).toLocaleString()}
+                </span>
               </div>
             </button>
           ))}
